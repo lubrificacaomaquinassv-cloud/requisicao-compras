@@ -53,7 +53,12 @@ ORGANIZACOES = {
 }
 
 NOMES_COMPLETOS = {"ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA", "CBTS": "COMUNIDADE BATISTA TERRA SANTA"}
-LOGOS = {"ASTS": "/home/ubuntu/upload/logo_asts.png", "CBTS": "/home/ubuntu/upload/logo_cbts.png"}
+
+# Atualizado para usar URLs diretas do GitHub
+LOGOS = {
+    "ASTS": "https://raw.githubusercontent.com/lubrificacaomaquinassv-cloud/requisicao-compras/main/logo_asts.png",
+    "CBTS": "https://raw.githubusercontent.com/lubrificacaomaquinassv-cloud/requisicao-compras/main/logo_cbts.png"
+}
 
 # ── CONEXÃO E FUNÇÕES ────────────────────────────────────────────────────────
 def conectar():
@@ -85,10 +90,14 @@ with st.sidebar:
     st.markdown("### 🏢 Instituição")
     org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
     aplicar_estilo()
-    logo_path = LOGOS.get(org_tema)
-    if os.path.exists(logo_path): st.image(logo_path, use_container_width=True)
+    
+    # Exibição da Logo (Atualizado para aceitar URL)
+    logo_url = LOGOS.get(org_tema)
+    if logo_url:
+        st.image(logo_url, use_container_width=True)
+        
     st.markdown("---")
-    st.caption("v8.0 - Full Lists Neon")
+    st.caption("v8.1 - GitHub Assets Integration")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
