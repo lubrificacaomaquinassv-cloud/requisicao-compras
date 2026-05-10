@@ -14,11 +14,13 @@ st.set_page_config(
     layout="centered"
 )
 
-# ── PALETA DE CORES PADRONIZADA ───────────────────────────────────────────────
-COR_PRIMARIA = "#003049"  # Azul Marinho elegante para ambas as organizações
-BEGE         = "#F5ECD7"
-BEGE2        = "#EDE0C4"
+# ── PALETA DE CORES MODERNA ───────────────────────────────────────────────────
+COR_PRIMARIA = "#003049"  # Azul Marinho Profundo
+COR_FUNDO    = "#EAF4F4"  # Sugestão do usuário: Cinza-Azulado bem claro e limpo
+COR_CARD     = "#FFFFFF"  # Branco puro para os cards
+COR_BORDA    = "#D8E2DC"  # Borda suave
 DOURADO      = "#C8A96E"
+TEXTO_SEC    = "#6C757D"
 
 # ── CONSTANTES ────────────────────────────────────────────────────────────────
 ORGANIZACOES = {
@@ -49,7 +51,7 @@ SHEET_NAME = "REQUISICAO_COMPRAS"
 COLUNAS    = ["ID_REQUISICAO", "DATA", "ORGANIZACAO", "DESTINO",
               "SOLICITANTE", "PRIORIDADE", "JUSTIFICATIVA", "ITENS"]
 
-# ── ESTILIZAÇÃO DINÂMICA ──────────────────────────────────────────────────────
+# ── ESTILIZAÇÃO MODERNA ───────────────────────────────────────────────────────
 def aplicar_estilo():
     st.markdown(f"""
     <style>
@@ -57,104 +59,123 @@ def aplicar_estilo():
 
         /* ── Reset Global ── */
         html, body, [class*="css"] {{
-            background-color: {BEGE} !important;
+            background-color: {COR_FUNDO} !important;
             color: {COR_PRIMARIA} !important;
             font-family: 'Inter', sans-serif;
         }}
 
         .block-container {{
-            padding-top: 1.5rem !important;
-            padding-bottom: 1rem !important;
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+            max-width: 800px;
         }}
 
-        /* ── Cabeçalho Principal (Título maior e destacado) ── */
+        /* ── Cabeçalho Principal (Moderno) ── */
         .header-container {{
             background-color: {COR_PRIMARIA};
-            padding: 30px 20px;
-            border-radius: 12px 12px 0 0;
+            padding: 35px 20px;
+            border-radius: 15px 15px 0 0;
             text-align: center;
-            border-bottom: 4px solid {DOURADO};
-            margin-bottom: 0px !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-bottom: 5px solid {DOURADO};
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }}
 
         .header-title {{
-            color: #A0B4C8;
+            color: #FFFFFF;
             text-transform: uppercase;
-            letter-spacing: 3px;
-            font-size: 16px; /* Aumentado para destacar */
+            letter-spacing: 4px;
+            font-size: 18px;
             font-weight: 800;
+            margin-bottom: 5px;
+        }}
+
+        .header-subtitle {{
+            color: #A0B4C8;
+            font-size: 12px;
+            letter-spacing: 2px;
+            font-weight: 500;
         }}
 
         .header-quote {{
             color: {DOURADO};
             font-style: italic;
-            margin-top: 12px;
+            margin-top: 15px;
             font-family: 'Crimson Pro', serif;
-            font-size: 20px; /* Aumentado proporcionalmente */
+            font-size: 22px;
         }}
 
-        /* ── Sidebar ── */
-        [data-testid="stSidebar"] {{
-            background-color: white !important;
-            border-right: 1px solid #ddd;
-        }}
-        
-        /* ── Tabs (Coladas no Header) ── */
+        /* ── Tabs (Estilo Pílula) ── */
         .stTabs [data-baseweb="tab-list"] {{
             background-color: {COR_PRIMARIA} !important;
-            border-radius: 0 0 12px 12px;
-            padding: 0 10px;
-            margin-top: 0px !important;
+            border-radius: 0 0 15px 15px;
+            padding: 5px 15px 10px;
+            gap: 10px;
         }}
         .stTabs [data-baseweb="tab"] {{
-            color: #A0B4C8 !important;
-            font-weight: 700 !important;
-            height: 48px !important;
+            color: rgba(255,255,255,0.6) !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            border: none !important;
+            padding: 8px 16px !important;
         }}
         .stTabs [aria-selected="true"] {{
-            background-color: {BEGE} !important;
+            background-color: {COR_FUNDO} !important;
             color: {COR_PRIMARIA} !important;
-            border-radius: 6px 6px 0 0;
         }}
 
-        /* ── Cards de seção ── */
-        .secao {{
-            background-color: {BEGE2};
-            border: 1px solid #D4C4A0;
-            border-radius: 10px;
-            padding: 22px;
+        /* ── Cards de Seção (O segredo do "preenchimento") ── */
+        .card-secao {{
+            background-color: {COR_CARD};
+            border-radius: 12px;
+            padding: 25px;
             margin-top: 25px;
             margin-bottom: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-left: 6px solid {COR_PRIMARIA};
         }}
-        .secao-titulo {{
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-size: 19px;
+
+        .card-titulo {{
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
             font-weight: 700;
             color: {COR_PRIMARIA};
-            border-bottom: 2px solid #C8B88A;
-            padding-bottom: 10px;
-            margin-bottom: 18px;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }}
+
+        /* ── Inputs e Widgets ── */
+        div[data-baseweb="input"], div[data-baseweb="select"], div[data-baseweb="textarea"] {{
+            border-radius: 8px !important;
+        }}
+        
+        .stTextInput input, .stSelectbox div, .stTextArea textarea {{
+            background-color: #F8F9FA !important;
+            border: 1px solid {COR_BORDA} !important;
         }}
 
         /* ── Botões ── */
         .stButton > button {{
-            background-color: {COR_PRIMARIA} !important;
+            background: linear-gradient(135deg, {COR_PRIMARIA} 0%, #005073 100%) !important;
             color: white !important;
-            border-radius: 8px !important;
+            border-radius: 10px !important;
             font-weight: 700 !important;
-            padding: 14px !important;
-            width: 100%;
+            padding: 16px !important;
             border: none !important;
-            transition: 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,48,73,0.3);
+            transition: all 0.3s ease;
         }}
         .stButton > button:hover {{
-            filter: brightness(1.2);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,48,73,0.4);
+        }}
+
+        /* ── Sidebar ── */
+        [data-testid="stSidebar"] {{
+            background-color: #FFFFFF !important;
         }}
 
         /* ── Esconder lixo ── */
@@ -188,31 +209,30 @@ def gerar_id():
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🏢 Seleção")
+    st.markdown("### 🏢 Instituição")
     org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
     
-    # Aplicar o estilo padronizado (independente da org)
     aplicar_estilo()
     
-    # Exibe a Logo na Sidebar
     logo_path = LOGOS.get(org_tema)
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
     
     st.markdown("---")
     st.markdown("### ⚙️ Configurações")
-    st.caption("v2.3 - Sistema de Requisição")
+    st.caption("v3.0 - Edição Moderna")
 
-# ── CABEÇALHO PRINCIPAL (TÍTULO MAIOR) ───────────────────────────────────────
+# ── CABEÇALHO PRINCIPAL (MODERNO) ───────────────────────────────────────────
 st.markdown(f"""
 <div class="header-container">
-    <div class="header-title">SISTEMA DE REQUISIÇÃO DE COMPRAS</div>
+    <div class="header-title">SISTEMA DE REQUISIÇÃO</div>
+    <div class="header-subtitle">CONTROLE DE COMPRAS E SUPRIMENTOS</div>
     <div class="header-quote">"Jesus é tudo que você precisa!"</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ── ABAS ──────────────────────────────────────────────────────────────────────
-aba1, aba2 = st.tabs(["📋  Nova Requisição", "📂  Requisições Registradas"])
+aba1, aba2 = st.tabs(["📋  Nova Requisição", "📂  Histórico de Registros"])
 
 # ── ABA 1 — FORMULÁRIO ────────────────────────────────────────────────────────
 with aba1:
@@ -221,52 +241,62 @@ with aba1:
 
     nome_completo = NOMES_COMPLETOS.get(org_tema, org_tema)
     
-    # Cabeçalho de seção simplificado com ícone de prédio 🏢
-    st.markdown(
-        f'<div class="secao"><div class="secao-titulo">🏢 {nome_completo}</div>',
-        unsafe_allow_html=True
-    )
+    # Card de Identificação
+    st.markdown(f"""
+    <div class="card-secao">
+        <div class="card-titulo">🏢 {nome_completo}</div>
+    """, unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        solicitante = st.text_input("👤 Solicitante *", placeholder="Nome completo")
+        solicitante = st.text_input("👤 Nome do Solicitante *", placeholder="Quem está pedindo?")
     with col2:
-        st.date_input("📅 Data", value=datetime.now().date(), disabled=True)
+        st.date_input("📅 Data Emissão", value=datetime.now().date(), disabled=True)
 
-    destino = st.selectbox(f"📍 Destino ({org_tema}) *", ORGANIZACOES[org_tema])
+    destino = st.selectbox(f"📍 Destino da Verba ({org_tema}) *", ORGANIZACOES[org_tema])
 
-    st.write("⚖️ **Prioridade**")
+    st.write("⚖️ **Nível de Prioridade**")
     prioridade = st.radio("P", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True, label_visibility="collapsed")
 
-    justificativa = st.text_area("📝 Justificativa / Finalidade *", placeholder="Descreva a necessidade...", height=100)
+    justificativa = st.text_area("📝 Justificativa / Finalidade *", placeholder="Descreva detalhadamente a necessidade...", height=100)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Seção de Itens
-    st.markdown('<div class="secao"><div class="secao-titulo">📦 ITENS SOLICITADOS</div>', unsafe_allow_html=True)
+    # Card de Itens
+    st.markdown("""
+    <div class="card-secao">
+        <div class="card-titulo">📦 Itens da Requisição</div>
+    """, unsafe_allow_html=True)
+    
     if "num_itens" not in st.session_state: st.session_state.num_itens = 1
-    if st.button("＋ Adicionar Item"): st.session_state.num_itens += 1
-
+    
     itens_lista = []
     for i in range(st.session_state.num_itens):
         c1, c2, c3 = st.columns([3, 1, 1])
-        with c1: d = st.text_input("Descrição", key=f"d_{i}", placeholder=f"Item {i+1}")
-        with c2: q = st.text_input("Qtd", key=f"q_{i}")
+        with c1: d = st.text_input("Descrição do Produto/Serviço", key=f"d_{i}", placeholder=f"Ex: Papel A4")
+        with c2: q = st.text_input("Qtd", key=f"q_{i}", placeholder="0")
         with c3: u = st.text_input("Unid", key=f"u_{i}", placeholder="un")
         if d: itens_lista.append(f"{d} | {q} {u}")
+    
+    if st.button("＋ Adicionar outro item"): 
+        st.session_state.num_itens += 1
+        st.rerun()
+        
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("🚀  REGISTRAR REQUISIÇÃO"):
+    # Botão de Ação Final
+    if st.button("🚀  FINALIZAR E REGISTRAR REQUISIÇÃO"):
         if not solicitante or not justificativa or not itens_lista:
-            st.error("⚠️ Preencha todos os campos obrigatórios (*)")
+            st.error("⚠️ Por favor, preencha todos os campos obrigatórios (*)")
         else:
-            with st.spinner("Salvando..."):
+            with st.spinner("Processando registro..."):
                 id_req, data_s = gerar_id(), datetime.now().strftime("%d/%m/%Y")
                 itens_s = " / ".join(itens_lista)
                 linha = [id_req, data_s, org_tema, destino, solicitante, prioridade, justificativa, itens_s]
                 salvar_linha(sheet, linha)
-                st.success(f"✅ Requisição {id_req} registrada!")
+                st.success(f"✅ Sucesso! Requisição {id_req} salva no sistema.")
                 st.balloons()
                 st.session_state.num_itens = 1
+                st.rerun()
 
 # ── ABA 2 — HISTÓRICO ─────────────────────────────────────────────────────────
 with aba2:
@@ -274,20 +304,21 @@ with aba2:
     if sheet:
         df = carregar_dados(sheet)
         if not df.empty:
-            st.markdown(f"### Histórico — `{len(df)} registros`")
+            st.markdown(f"### 📂 Registros Localizados (`{len(df)}`)")
             st.dataframe(df, use_container_width=True, hide_index=True)
             import io
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False)
-            st.download_button("⬇️ Baixar Excel", buf.getvalue(), "requisicoes.xlsx", "application/vnd.ms-excel")
+            st.download_button("⬇️ Exportar para Excel (.xlsx)", buf.getvalue(), "requisicoes.xlsx", "application/vnd.ms-excel")
         else:
-            st.info("Nenhum registro encontrado.")
+            st.info("Nenhuma requisição encontrada no banco de dados.")
 
 # ── RODAPÉ ────────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div style="background-color:{COR_PRIMARIA}; color:#A0B4C8; text-align:center; padding:15px; border-radius:8px; margin-top:25px; border-top:3px solid {DOURADO}; font-size:12px;">
-    <div style="color:white; font-weight:bold; margin-bottom:5px;">{org_tema}</div>
-    Rua José Vicenti Vitiriti, 801 — Residencial Modelo I &nbsp;|&nbsp; (67) 99682-2052
+<div style="text-align:center; color:{TEXTO_SEC}; font-size:11px; margin-top:40px; padding:20px; border-top:1px solid {COR_BORDA};">
+    <div style="font-weight:700; color:{COR_PRIMARIA}; margin-bottom:5px;">{nome_completo}</div>
+    Rua José Vicenti Vitiriti, 801 — Residencial Modelo I &nbsp;|&nbsp; (67) 99682-2052<br>
+    Desenvolvido para gestão eficiente de suprimentos.
 </div>
 """, unsafe_allow_html=True)
