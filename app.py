@@ -14,17 +14,16 @@ st.set_page_config(
     layout="centered"
 )
 
-# ── PALETA DE CORES ───────────────────────────────────────────────────────────
-AZUL_ASTS = "#2E3192"
-AZUL_CBTS = "#003049"
-BEGE      = "#F5ECD7"
-BEGE2     = "#EDE0C4"
-DOURADO   = "#C8A96E"
+# ── PALETA DE CORES PADRONIZADA ───────────────────────────────────────────────
+COR_PRIMARIA = "#003049"  # Azul Marinho elegante para ambas as organizações
+BEGE         = "#F5ECD7"
+BEGE2        = "#EDE0C4"
+DOURADO      = "#C8A96E"
 
 # ── CONSTANTES ────────────────────────────────────────────────────────────────
 ORGANIZACOES = {
     "ASTS": [
-        "CBP", "BETHEL MUSIC", "CAT VIDA Nova",
+        "CBP", "BETHEL MUSIC", "CAT VIDA NOVA",
         "HIDROPONIA", "MARCENARIA", "PRAÇA TERRA SANTA"
     ],
     "CBTS": [
@@ -51,7 +50,7 @@ COLUNAS    = ["ID_REQUISICAO", "DATA", "ORGANIZACAO", "DESTINO",
               "SOLICITANTE", "PRIORIDADE", "JUSTIFICATIVA", "ITENS"]
 
 # ── ESTILIZAÇÃO DINÂMICA ──────────────────────────────────────────────────────
-def aplicar_estilo(cor_primaria: str):
+def aplicar_estilo():
     st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap');
@@ -59,39 +58,40 @@ def aplicar_estilo(cor_primaria: str):
         /* ── Reset Global ── */
         html, body, [class*="css"] {{
             background-color: {BEGE} !important;
-            color: {cor_primaria} !important;
+            color: {COR_PRIMARIA} !important;
             font-family: 'Inter', sans-serif;
         }}
 
         .block-container {{
-            padding-top: 1rem !important;
+            padding-top: 1.5rem !important;
             padding-bottom: 1rem !important;
         }}
 
-        /* ── Cabeçalho Principal (Sem Logo = Sem Bug) ── */
+        /* ── Cabeçalho Principal (Título maior e destacado) ── */
         .header-container {{
-            background-color: {cor_primaria};
-            padding: 20px;
+            background-color: {COR_PRIMARIA};
+            padding: 30px 20px;
             border-radius: 12px 12px 0 0;
             text-align: center;
             border-bottom: 4px solid {DOURADO};
             margin-bottom: 0px !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }}
 
         .header-title {{
             color: #A0B4C8;
             text-transform: uppercase;
-            letter-spacing: 2.5px;
-            font-size: 11px;
-            font-weight: 700;
+            letter-spacing: 3px;
+            font-size: 16px; /* Aumentado para destacar */
+            font-weight: 800;
         }}
 
         .header-quote {{
             color: {DOURADO};
             font-style: italic;
-            margin-top: 8px;
+            margin-top: 12px;
             font-family: 'Crimson Pro', serif;
-            font-size: 17px;
+            font-size: 20px; /* Aumentado proporcionalmente */
         }}
 
         /* ── Sidebar ── */
@@ -100,17 +100,9 @@ def aplicar_estilo(cor_primaria: str):
             border-right: 1px solid #ddd;
         }}
         
-        .sidebar-logo-container {{
-            text-align: center;
-            padding: 20px 10px;
-            background-color: white;
-            border-bottom: 1px solid #eee;
-            margin-bottom: 20px;
-        }}
-
         /* ── Tabs (Coladas no Header) ── */
         .stTabs [data-baseweb="tab-list"] {{
-            background-color: {cor_primaria} !important;
+            background-color: {COR_PRIMARIA} !important;
             border-radius: 0 0 12px 12px;
             padding: 0 10px;
             margin-top: 0px !important;
@@ -118,11 +110,12 @@ def aplicar_estilo(cor_primaria: str):
         .stTabs [data-baseweb="tab"] {{
             color: #A0B4C8 !important;
             font-weight: 700 !important;
-            height: 45px !important;
+            height: 48px !important;
         }}
         .stTabs [aria-selected="true"] {{
             background-color: {BEGE} !important;
-            color: {cor_primaria} !important;
+            color: {COR_PRIMARIA} !important;
+            border-radius: 6px 6px 0 0;
         }}
 
         /* ── Cards de seção ── */
@@ -130,29 +123,38 @@ def aplicar_estilo(cor_primaria: str):
             background-color: {BEGE2};
             border: 1px solid #D4C4A0;
             border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            margin-bottom: 20px;
+            padding: 22px;
+            margin-top: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }}
         .secao-titulo {{
             font-family: 'Crimson Pro', Georgia, serif;
-            font-size: 18px;
+            font-size: 19px;
             font-weight: 700;
-            color: {cor_primaria};
-            border-bottom: 1px solid #C8B88A;
-            padding-bottom: 8px;
-            margin-bottom: 15px;
-            text-transform: uppercase;
+            color: {COR_PRIMARIA};
+            border-bottom: 2px solid #C8B88A;
+            padding-bottom: 10px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }}
 
         /* ── Botões ── */
         .stButton > button {{
-            background-color: {cor_primaria} !important;
+            background-color: {COR_PRIMARIA} !important;
             color: white !important;
             border-radius: 8px !important;
             font-weight: 700 !important;
-            padding: 12px !important;
+            padding: 14px !important;
             width: 100%;
+            border: none !important;
+            transition: 0.3s ease;
+        }}
+        .stButton > button:hover {{
+            filter: brightness(1.2);
+            transform: translateY(-1px);
         }}
 
         /* ── Esconder lixo ── */
@@ -184,28 +186,27 @@ def gerar_id():
     d = datetime.now()
     return f"REQ-{d.strftime('%Y%m%d')}-{random.randint(1, 999):03d}"
 
-# ── SIDEBAR (LOGO AGORA FICA AQUI) ───────────────────────────────────────────
+# ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # Seleção da Org primeiro para definir a logo
+    st.markdown("### 🏢 Seleção")
     org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
-    cor_tema = AZUL_ASTS if org_tema == "ASTS" else AZUL_CBTS
-    aplicar_estilo(cor_tema)
+    
+    # Aplicar o estilo padronizado (independente da org)
+    aplicar_estilo()
     
     # Exibe a Logo na Sidebar
     logo_path = LOGOS.get(org_tema)
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
-    else:
-        st.markdown(f"### {org_tema}")
     
     st.markdown("---")
     st.markdown("### ⚙️ Configurações")
-    st.caption("v2.2 - Sistema de Requisição")
+    st.caption("v2.3 - Sistema de Requisição")
 
-# ── CABEÇALHO PRINCIPAL (LIMPO E COMPACTO) ───────────────────────────────────
+# ── CABEÇALHO PRINCIPAL (TÍTULO MAIOR) ───────────────────────────────────────
 st.markdown(f"""
 <div class="header-container">
-    <div class="header-title">Sistema de Requisição de Compras</div>
+    <div class="header-title">SISTEMA DE REQUISIÇÃO DE COMPRAS</div>
     <div class="header-quote">"Jesus é tudo que você precisa!"</div>
 </div>
 """, unsafe_allow_html=True)
@@ -219,8 +220,10 @@ with aba1:
     if not sheet: st.stop()
 
     nome_completo = NOMES_COMPLETOS.get(org_tema, org_tema)
+    
+    # Cabeçalho de seção simplificado com ícone de prédio 🏢
     st.markdown(
-        f'<div class="secao"><div class="secao-titulo">🆔 Identificação - {nome_completo}</div>',
+        f'<div class="secao"><div class="secao-titulo">🏢 {nome_completo}</div>',
         unsafe_allow_html=True
     )
 
@@ -238,7 +241,8 @@ with aba1:
     justificativa = st.text_area("📝 Justificativa / Finalidade *", placeholder="Descreva a necessidade...", height=100)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="secao"><div class="secao-titulo">📦 Itens Solicitados</div>', unsafe_allow_html=True)
+    # Seção de Itens
+    st.markdown('<div class="secao"><div class="secao-titulo">📦 ITENS SOLICITADOS</div>', unsafe_allow_html=True)
     if "num_itens" not in st.session_state: st.session_state.num_itens = 1
     if st.button("＋ Adicionar Item"): st.session_state.num_itens += 1
 
@@ -282,7 +286,7 @@ with aba2:
 
 # ── RODAPÉ ────────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div style="background-color:{cor_tema}; color:#A0B4C8; text-align:center; padding:15px; border-radius:8px; margin-top:25px; border-top:3px solid {DOURADO}; font-size:12px;">
+<div style="background-color:{COR_PRIMARIA}; color:#A0B4C8; text-align:center; padding:15px; border-radius:8px; margin-top:25px; border-top:3px solid {DOURADO}; font-size:12px;">
     <div style="color:white; font-weight:bold; margin-bottom:5px;">{org_tema}</div>
     Rua José Vicenti Vitiriti, 801 — Residencial Modelo I &nbsp;|&nbsp; (67) 99682-2052
 </div>
