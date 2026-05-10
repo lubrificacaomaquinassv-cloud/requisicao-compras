@@ -5,7 +5,7 @@ import os
 from sqlalchemy import text
 
 # ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
-st.set_page_config(page_title="Sistema de Requisição - Neon V3", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Sistema de Requisição - Neon V4", layout="wide", page_icon="🏢")
 
 # ── DEFINIÇÕES DE DESIGN ─────────────────────────────────────────────────────
 COR_PRIMARIA = "#003049"
@@ -37,11 +37,21 @@ def aplicar_estilo():
     </style>
     """, unsafe_allow_html=True)
 
-# ── CONSTANTES ───────────────────────────────────────────────────────────────
+# ── CONSTANTES ATUALIZADAS COM A LISTA COMPLETA ──────────────────────────────
 ORGANIZACOES = {
-    "ASTS": ["CBP", "LUBRIFICAÇÃO", "ADMINISTRATIVO", "OUTROS"],
-    "CBTS": ["MINISTÉRIO", "CBP", "MANUTENÇÃO", "EVENTOS"]
+    "CBTS": [
+        "MIN. INFANTIL", "MIN. LIBRAS", "SECRETARIA ADM", "MIN. INTERCESSAO", 
+        "MIN. CURA E LIBERTACAO", "MIN. BENEFICENCIA", "MIN. RECEPCAO", 
+        "MIN. PROJECAO", "MIN. MIDIA", "MIN. EVENTOS", "MIN. VISISTAS", 
+        "MIN. CAPELANIA", "MIN. LOUVOR", "MIN. PASTORAL", "MIN. PATRIMONIO", 
+        "MIN. CELULAS FAMILIARES"
+    ],
+    "ASTS": [
+        "CBP", "MARCENARIA", "BETHEL MUSIC", "CAT - VIDA NOVA", 
+        "HIDROPONIA", "PRAÇA TERRA SANTA"
+    ]
 }
+
 NOMES_COMPLETOS = {"ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA", "CBTS": "COMUNIDADE BATISTA TERRA SANTA"}
 LOGOS = {"ASTS": "/home/ubuntu/upload/logo_asts.png", "CBTS": "/home/ubuntu/upload/logo_cbts.png"}
 
@@ -78,7 +88,7 @@ with st.sidebar:
     logo_path = LOGOS.get(org_tema)
     if os.path.exists(logo_path): st.image(logo_path, use_container_width=True)
     st.markdown("---")
-    st.caption("v7.0 - Neon Stable")
+    st.caption("v8.0 - Full Lists Neon")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
@@ -133,8 +143,8 @@ with aba1:
 
 with aba2:
     try:
-        df = conn.query("SELECT * FROM requisicoes ORDER BY data_criacao DESC", ttl=0)
+        df = conn.query("SELECT data, fornecedor, solicitante, valor_total, item_descricao FROM requisicoes ORDER BY data_criacao DESC", ttl=0)
         if not df.empty:
-            st.dataframe(df[['data', 'fornecedor', 'solicitante', 'valor_total', 'item_descricao']], use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
         else: st.info("Sem registros.")
     except: st.error("Erro ao carregar histórico.")
