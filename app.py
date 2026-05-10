@@ -1,41 +1,84 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime
 import random
 import os
-import base64
 
-# ── CONFIG GERAL ──────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Requisição de Compras | ASTS & CBTS",
-    page_icon="📋",
-    layout="centered"
-)
+# ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
+st.set_page_config(page_title="Sistema de Requisição - Neon.tech V2", layout="wide", page_icon="🏢")
 
-# ── PALETA DE CORES MODERNA ───────────────────────────────────────────────────
-COR_PRIMARIA = "#003049"  # Azul Marinho Profundo
-COR_FUNDO    = "#EAF4F4"  # Sugestão do usuário: Cinza-Azulado bem claro e limpo
-COR_CARD     = "#FFFFFF"  # Branco puro para os cards
-COR_BORDA    = "#D8E2DC"  # Borda suave
-DOURADO      = "#C8A96E"
-TEXTO_SEC    = "#6C757D"
+# ── DEFINIÇÕES DE DESIGN (PALETA MODERNA) ────────────────────────────────────
+COR_PRIMARIA = "#003049"    # Azul Marinho Profundo
+COR_SECUNDARIA = "#669BBC"  # Azul Aço Suave
+COR_FUNDO = "#EAF4F4"       # Cinza-Azulado
+COR_CARD = "#FFFFFF"        # Branco Puro
+COR_BORDA = "#D8E2DC"       # Borda Suave
+TEXTO_PRIM = "#212529"      # Cinza Escuro
+TEXTO_SEC = "#6C757D"       # Cinza Médio
 
-# ── CONSTANTES ────────────────────────────────────────────────────────────────
+# ── ESTILO CSS CUSTOMIZADO ──────────────────────────────────────────────────
+def aplicar_estilo():
+    st.markdown(f"""
+    <style>
+    .stApp {{ background-color: {COR_FUNDO}; }}
+    div[data-testid="stDecoration"] {{ display: none; }}
+    .block-container {{ padding-top: 1.5rem !important; }}
+
+    .header-container {{
+        background: {COR_PRIMARIA};
+        padding: 25px 20px;
+        border-radius: 12px 12px 0 0;
+        text-align: center;
+        color: white;
+        margin-bottom: 0px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }}
+    .header-title {{ font-size: 32px; font-weight: 800; letter-spacing: 2px; margin-bottom: 5px; }}
+    .header-subtitle {{ font-size: 14px; text-transform: uppercase; letter-spacing: 4px; opacity: 0.9; }}
+    .header-quote {{ font-family: 'Georgia', serif; font-style: italic; font-size: 16px; margin-top: 15px; color: #fdf0d5; }}
+
+    .stTabs [data-baseweb="tab-list"] {{
+        background-color: {COR_PRIMARIA};
+        padding: 5px 15px;
+        border-radius: 0 0 12px 12px;
+        gap: 10px;
+    }}
+    .stTabs [data-baseweb="tab"] {{ color: rgba(255,255,255,0.6) !important; background: transparent !important; }}
+    .stTabs [aria-selected="true"] {{ color: white !important; border-bottom: 3px solid white !important; }}
+
+    .card-secao {{
+        background: {COR_CARD};
+        padding: 25px;
+        border-radius: 12px;
+        border-left: 6px solid {COR_PRIMARIA};
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-top: 25px;
+        margin-bottom: 25px;
+    }}
+    .card-titulo {{ font-size: 18px; font-weight: 700; color: {COR_PRIMARIA}; margin-bottom: 20px; border-bottom: 1px solid {COR_BORDA}; padding-bottom: 10px; }}
+
+    div.stButton > button {{
+        width: 100%;
+        background: linear-gradient(135deg, {COR_PRIMARIA} 0%, {COR_SECUNDARIA} 100%);
+        color: white !important;
+        border: none;
+        padding: 12px;
+        font-weight: 700;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }}
+    
+    .stTextInput input, .stTextArea textarea, .stSelectbox select {{
+        background-color: #f8f9fa !important;
+        border-radius: 8px !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# ── CONSTANTES E CONFIGURAÇÕES ───────────────────────────────────────────────
 ORGANIZACOES = {
-    "ASTS": [
-        "CBP", "BETHEL MUSIC", "CAT VIDA NOVA",
-        "HIDROPONIA", "MARCENARIA", "PRAÇA TERRA SANTA"
-    ],
-    "CBTS": [
-        "MIN. LOUVOR", "MIN. RECEPÇÃO", "MIN. LIBRAS",
-        "MIN. CURA E LIBERTAÇÃO", "MIN. INTERCESSÃO", "MIN. MÍDIA",
-        "MIN. SONOPLASTIA", "MIN. INFANTIL", "MIN. PROJEÇÃO",
-        "MIN. CAPELANIA", "MIN. CÉLULAS", "MIN. REDE JOVENS",
-        "MIN. TEATRO", "MIN. BENEFICÊNCIA", "MIN. PREGAÇÃO",
-        "MIN. PASTORAL", "MIN. VISITAS"
-    ]
+    "ASTS": ["CBP", "LUBRIFICAÇÃO", "ADMINISTRATIVO", "OUTROS"],
+    "CBTS": ["MINISTÉRIO", "CBP", "MANUTENÇÃO", "EVENTOS"]
 }
 
 NOMES_COMPLETOS = {
@@ -44,281 +87,197 @@ NOMES_COMPLETOS = {
 }
 
 LOGOS = {
-    "ASTS": "logo_asts.png",
-    "CBTS": "logo_cbts.png"
+    "ASTS": "/home/ubuntu/upload/logo_asts.png",
+    "CBTS": "/home/ubuntu/upload/logo_cbts.png"
 }
-SHEET_NAME = "REQUISICAO_COMPRAS"
-COLUNAS    = ["ID_REQUISICAO", "DATA", "ORGANIZACAO", "DESTINO",
-              "SOLICITANTE", "PRIORIDADE", "JUSTIFICATIVA", "ITENS"]
 
-# ── ESTILIZAÇÃO MODERNA ───────────────────────────────────────────────────────
-def aplicar_estilo():
-    st.markdown(f"""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap');
-
-        /* ── Reset Global ── */
-        html, body, [class*="css"] {{
-            background-color: {COR_FUNDO} !important;
-            color: {COR_PRIMARIA} !important;
-            font-family: 'Inter', sans-serif;
-        }}
-
-        .block-container {{
-            padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
-            max-width: 800px;
-        }}
-
-        /* ── Cabeçalho Principal (Moderno) ── */
-        .header-container {{
-            background-color: {COR_PRIMARIA};
-            padding: 35px 20px;
-            border-radius: 15px 15px 0 0;
-            text-align: center;
-            border-bottom: 5px solid {DOURADO};
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }}
-
-        .header-title {{
-            color: #FFFFFF;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            font-size: 18px;
-            font-weight: 800;
-            margin-bottom: 5px;
-        }}
-
-        .header-subtitle {{
-            color: #A0B4C8;
-            font-size: 12px;
-            letter-spacing: 2px;
-            font-weight: 500;
-        }}
-
-        .header-quote {{
-            color: {DOURADO};
-            font-style: italic;
-            margin-top: 15px;
-            font-family: 'Crimson Pro', serif;
-            font-size: 22px;
-        }}
-
-        /* ── Tabs (Estilo Pílula) ── */
-        .stTabs [data-baseweb="tab-list"] {{
-            background-color: {COR_PRIMARIA} !important;
-            border-radius: 0 0 15px 15px;
-            padding: 5px 15px 10px;
-            gap: 10px;
-        }}
-        .stTabs [data-baseweb="tab"] {{
-            color: rgba(255,255,255,0.6) !important;
-            font-weight: 600 !important;
-            border-radius: 8px !important;
-            border: none !important;
-            padding: 8px 16px !important;
-        }}
-        .stTabs [aria-selected="true"] {{
-            background-color: {COR_FUNDO} !important;
-            color: {COR_PRIMARIA} !important;
-        }}
-
-        /* ── Cards de Seção (O segredo do "preenchimento") ── */
-        .card-secao {{
-            background-color: {COR_CARD};
-            border-radius: 12px;
-            padding: 25px;
-            margin-top: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            border-left: 6px solid {COR_PRIMARIA};
-        }}
-
-        .card-titulo {{
-            font-family: 'Inter', sans-serif;
-            font-size: 16px;
-            font-weight: 700;
-            color: {COR_PRIMARIA};
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }}
-
-        /* ── Inputs e Widgets ── */
-        div[data-baseweb="input"], div[data-baseweb="select"], div[data-baseweb="textarea"] {{
-            border-radius: 8px !important;
-        }}
-        
-        .stTextInput input, .stSelectbox div, .stTextArea textarea {{
-            background-color: #F8F9FA !important;
-            border: 1px solid {COR_BORDA} !important;
-        }}
-
-        /* ── Botões ── */
-        .stButton > button {{
-            background: linear-gradient(135deg, {COR_PRIMARIA} 0%, #005073 100%) !important;
-            color: white !important;
-            border-radius: 10px !important;
-            font-weight: 700 !important;
-            padding: 16px !important;
-            border: none !important;
-            box-shadow: 0 4px 12px rgba(0,48,73,0.3);
-            transition: all 0.3s ease;
-        }}
-        .stButton > button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 18px rgba(0,48,73,0.4);
-        }}
-
-        /* ── Sidebar ── */
-        [data-testid="stSidebar"] {{
-            background-color: #FFFFFF !important;
-        }}
-
-        /* ── Esconder lixo ── */
-        #MainMenu, footer, header {{visibility: hidden;}}
-        div[data-testid="stDecoration"] {{display: none;}}
-    </style>
-    """, unsafe_allow_html=True)
-
-# ── CONEXÃO SHEETS ────────────────────────────────────────────────────────────
-@st.cache_resource
-def conectar_sheets():
+# ── FUNÇÕES DE DADOS (POSTGRESQL - NEON.TECH) ────────────────────────────────
+def conectar_postgres():
     try:
-        scope  = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds  = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-        client = gspread.authorize(creds)
-        return client.open(SHEET_NAME).sheet1
+        conn = st.connection("postgresql", type="sql")
+        return conn
     except Exception as e:
-        st.error(f"Erro de conexão: {e}")
+        st.error(f"❌ Erro ao conectar ao PostgreSQL: {e}")
         return None
 
-def carregar_dados(sheet):
-    dados = sheet.get_all_records()
-    return pd.DataFrame(dados) if dados else pd.DataFrame(columns=COLUNAS)
+def salvar_requisicao(conn, dados):
+    try:
+        query = """
+        INSERT INTO requisicoes (
+            solicitante, data, destino, cbp, prioridade, justificativa,
+            fornecedor, item_descricao, item_quantidade, item_unidade, 
+            valor_unitario, valor_total
+        ) VALUES (
+            :solicitante, :data, :destino, :cbp, :prioridade, :justificativa,
+            :fornecedor, :item_descricao, :item_quantidade, :item_unidade,
+            :valor_unitario, :valor_total
+        );
+        """
+        conn.query(query, **dados).execute()
+        return True
+    except Exception as e:
+        st.error(f"❌ Erro ao salvar no banco de dados: {e}")
+        return False
 
-def salvar_linha(sheet, linha):
-    sheet.append_row(linha, value_input_option="USER_ENTERED")
-
-def gerar_id():
-    d = datetime.now()
-    return f"REQ-{d.strftime('%Y%m%d')}-{random.randint(1, 999):03d}"
+def carregar_dados(conn):
+    try:
+        df = conn.query("SELECT * FROM requisicoes ORDER BY data_criacao DESC;", ttl="10m")
+        return df
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar dados: {e}")
+        return pd.DataFrame()
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🏢 Instituição")
     org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
-    
     aplicar_estilo()
-    
     logo_path = LOGOS.get(org_tema)
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
-    
     st.markdown("---")
     st.markdown("### ⚙️ Configurações")
-    st.caption("v3.0 - Edição Moderna")
+    st.caption("v6.0 - Edição Financeira Neon")
 
-# ── CABEÇALHO PRINCIPAL (MODERNO) ───────────────────────────────────────────
+# ── CABEÇALHO PRINCIPAL ──────────────────────────────────────────────────────
 st.markdown(f"""
 <div class="header-container">
     <div class="header-title">SISTEMA DE REQUISIÇÃO</div>
-    <div class="header-subtitle">CONTROLE DE COMPRAS E SUPRIMENTOS</div>
+    <div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div>
     <div class="header-quote">"Jesus é tudo que você precisa!"</div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── ABAS ──────────────────────────────────────────────────────────────────────
+conn = conectar_postgres()
+
 aba1, aba2 = st.tabs(["📋  Nova Requisição", "📂  Histórico de Registros"])
 
 # ── ABA 1 — FORMULÁRIO ────────────────────────────────────────────────────────
 with aba1:
-    sheet = conectar_sheets()
-    if not sheet: st.stop()
-
+    if not conn:
+        st.warning("⚠️ Sistema aguardando configuração do banco de dados (Neon.tech).")
+        st.stop()
+        
     nome_completo = NOMES_COMPLETOS.get(org_tema, org_tema)
     
     # Card de Identificação
-    st.markdown(f"""
-    <div class="card-secao">
-        <div class="card-titulo">🏢 {nome_completo}</div>
-    """, unsafe_allow_html=True)
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
+    st.markdown(f"""<div class="card-secao"><div class="card-titulo">🏢 {nome_completo}</div>""", unsafe_allow_html=True)
+    
+    c1, c2 = st.columns([2, 1])
+    with c1:
         solicitante = st.text_input("👤 Nome do Solicitante *", placeholder="Quem está pedindo?")
-    with col2:
-        st.date_input("📅 Data Emissão", value=datetime.now().date(), disabled=True)
-
-    destino = st.selectbox(f"📍 Destino da Verba ({org_tema}) *", ORGANIZACOES[org_tema])
-
-    st.write("⚖️ **Nível de Prioridade**")
-    prioridade = st.radio("P", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True, label_visibility="collapsed")
-
-    justificativa = st.text_area("📝 Justificativa / Finalidade *", placeholder="Descreva detalhadamente a necessidade...", height=100)
+    with c2:
+        data_emissao = st.date_input("📅 Data Emissão", value=datetime.now().date(), disabled=True)
+    
+    # Novo Campo: Fornecedor
+    fornecedor = st.text_input("🏪 Fornecedor Sugerido / Real", placeholder="Ex: Leroy Merlin, Posto Central...")
+    
+    c3, c4 = st.columns(2)
+    with c3:
+        destino = st.selectbox(f"📍 Destino da Verba ({org_tema}) *", ORGANIZACOES[org_tema])
+    with c4:
+        st.write("⚖️ **Prioridade**")
+        prioridade = st.radio("P", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True, label_visibility="collapsed")
+    
+    justificativa = st.text_area("📝 Justificativa / Finalidade *", placeholder="Descreva a necessidade...", height=80)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Card de Itens
-    st.markdown("""
-    <div class="card-secao">
-        <div class="card-titulo">📦 Itens da Requisição</div>
-    """, unsafe_allow_html=True)
+    # Card de Itens com Valores
+    st.markdown("""<div class="card-secao"><div class="card-titulo">📦 Itens e Valores</div>""", unsafe_allow_html=True)
     
     if "num_itens" not in st.session_state: st.session_state.num_itens = 1
     
     itens_lista = []
+    valor_total_geral = 0.0
+    
     for i in range(st.session_state.num_itens):
-        c1, c2, c3 = st.columns([3, 1, 1])
-        with c1: d = st.text_input("Descrição do Produto/Serviço", key=f"d_{i}", placeholder=f"Ex: Papel A4")
-        with c2: q = st.text_input("Qtd", key=f"q_{i}", placeholder="0")
-        with c3: u = st.text_input("Unid", key=f"u_{i}", placeholder="un")
-        if d: itens_lista.append(f"{d} | {q} {u}")
+        col_d, col_q, col_u, col_v = st.columns([3, 1, 1, 2])
+        with col_d:
+            d = st.text_input("Descrição", key=f"d_{i}", placeholder="Produto/Serviço")
+        with col_q:
+            q = st.number_input("Qtd", key=f"q_{i}", min_value=1, step=1)
+        with col_u:
+            u = st.text_input("Un", key=f"u_{i}", placeholder="un")
+        with col_v:
+            v = st.number_input("Valor Unit. (R$)", key=f"v_{i}", min_value=0.0, format="%.2f")
+        
+        v_total_item = q * v
+        st.caption(f"Total Item: R$ {v_total_item:,.2f}")
+        
+        if d:
+            itens_lista.append({
+                "descricao": d, "quantidade": q, "unidade": u, 
+                "valor_unitario": v, "valor_total": v_total_item
+            })
+            valor_total_geral += v_total_item
+    
+    st.markdown(f"### 💰 Valor Total da Requisição: **R$ {valor_total_geral:,.2f}**")
     
     if st.button("＋ Adicionar outro item"): 
         st.session_state.num_itens += 1
         st.rerun()
-        
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Botão de Ação Final
     if st.button("🚀  FINALIZAR E REGISTRAR REQUISIÇÃO"):
         if not solicitante or not justificativa or not itens_lista:
-            st.error("⚠️ Por favor, preencha todos os campos obrigatórios (*)")
+            st.error("⚠️ Preencha os campos obrigatórios e adicione itens.")
         else:
-            with st.spinner("Processando registro..."):
-                id_req, data_s = gerar_id(), datetime.now().strftime("%d/%m/%Y")
-                itens_s = " / ".join(itens_lista)
-                linha = [id_req, data_s, org_tema, destino, solicitante, prioridade, justificativa, itens_s]
-                salvar_linha(sheet, linha)
-                st.success(f"✅ Sucesso! Requisição {id_req} salva no sistema.")
-                st.balloons()
-                st.session_state.num_itens = 1
-                st.rerun()
+            with st.spinner("Registrando no PostgreSQL..."):
+                itens_str = " / ".join([f"{i['descricao']} ({i['quantidade']} {i['unidade']})" for i in itens_lista])
+                
+                dados_req = {
+                    "solicitante": solicitante,
+                    "data": str(data_emissao),
+                    "destino": org_tema,
+                    "cbp": destino,
+                    "prioridade": prioridade,
+                    "justificativa": justificativa,
+                    "fornecedor": fornecedor,
+                    "item_descricao": itens_str,
+                    "item_quantidade": sum([i['quantidade'] for i in itens_lista]),
+                    "item_unidade": "diversos",
+                    "valor_unitario": valor_total_geral / len(itens_lista) if itens_lista else 0, # Média para o campo unitário
+                    "valor_total": valor_total_geral
+                }
+                
+                if salvar_requisicao(conn, dados_req):
+                    st.success(f"✅ Sucesso! Requisição de R$ {valor_total_geral:,.2f} registrada.")
+                    st.balloons()
+                    st.session_state.num_itens = 1
+                    st.rerun()
 
 # ── ABA 2 — HISTÓRICO ─────────────────────────────────────────────────────────
 with aba2:
-    sheet = conectar_sheets()
-    if sheet:
-        df = carregar_dados(sheet)
+    if conn:
+        df = carregar_dados(conn)
         if not df.empty:
-            st.markdown(f"### 📂 Registros Localizados (`{len(df)}`)")
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.markdown(f"### 📂 Registros no PostgreSQL (`{len(df)}`)")
+            df_display = df.copy()
+            colunas_exibir = {
+                'data': 'Data',
+                'destino': 'Org',
+                'fornecedor': 'Fornecedor',
+                'solicitante': 'Solicitante',
+                'valor_total': 'Valor Total (R$)',
+                'item_descricao': 'Itens',
+                'status': 'Status'
+            }
+            # Formatar coluna de valor para moeda
+            if 'valor_total' in df_display.columns:
+                df_display['valor_total'] = df_display['valor_total'].map('R$ {:,.2f}'.format)
+                
+            df_display = df_display[list(colunas_exibir.keys())].rename(columns=colunas_exibir)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+            
             import io
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False)
-            st.download_button("⬇️ Exportar para Excel (.xlsx)", buf.getvalue(), "requisicoes.xlsx", "application/vnd.ms-excel")
+                df_display.to_excel(writer, index=False)
+            st.download_button("⬇️ Exportar para Excel", buf.getvalue(), "requisicoes_financeiro.xlsx")
         else:
-            st.info("Nenhuma requisição encontrada no banco de dados.")
+            st.info("Nenhuma requisição encontrada.")
 
 # ── RODAPÉ ────────────────────────────────────────────────────────────────────
-st.markdown(f"""
-<div style="text-align:center; color:{TEXTO_SEC}; font-size:11px; margin-top:40px; padding:20px; border-top:1px solid {COR_BORDA};">
-    <div style="font-weight:700; color:{COR_PRIMARIA}; margin-bottom:5px;">{nome_completo}</div>
-    Rua José Vicenti Vitiriti, 801 — Residencial Modelo I &nbsp;|&nbsp; (67) 99682-2052<br>
-    Desenvolvido para gestão eficiente de suprimentos.
-</div>
-""", unsafe_allow_html=True)
+st.markdown(f"""<div style="text-align:center; color:{TEXTO_SEC}; font-size:11px; margin-top:40px; padding:20px; border-top:1px solid {COR_BORDA};">
+<div style="font-weight:700; color:{COR_PRIMARIA}; margin-bottom:5px;">{nome_completo}</div>
+Gestão Financeira Profissional baseada em PostgreSQL (Neon.tech).</div>""", unsafe_allow_html=True)
