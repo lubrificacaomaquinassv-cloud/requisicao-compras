@@ -8,7 +8,7 @@ import base64
 import re
 
 # ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
-st.set_page_config(page_title="Sistema de Requisição - Neon V8", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Sistema de Requisição - Neon V9", layout="wide", page_icon="🏢")
 
 # ── DEFINIÇÕES DE DESIGN ─────────────────────────────────────────────────────
 COR_PRIMARIA = "#003049"
@@ -125,8 +125,9 @@ def gerar_pdf(dados, itens, nome_org):
     pdf.cell(90, 10, "Assinatura do Solicitante", 0, 0, 'C')
     pdf.cell(10, 10, "", 0, 0)
     pdf.cell(90, 10, "Autorizacao / Diretoria", 0, 1, 'C')
-    # Retorna os bytes do PDF diretamente
-    return pdf.output()
+    
+    # CONVERSÃO CRÍTICA: bytearray para bytes puros para o Streamlit Cloud
+    return bytes(pdf.output())
 
 # ── CONEXÃO E FUNÇÕES ────────────────────────────────────────────────────────
 def conectar():
@@ -161,7 +162,7 @@ with st.sidebar:
     logo_path = buscar_logo(org_tema)
     if logo_path: st.image(logo_path, use_container_width=True)
     st.markdown("---")
-    st.caption("v12.0 - PDF Stable Bytes")
+    st.caption("v13.0 - PDF Pure Bytes Fix")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
@@ -213,12 +214,12 @@ with aba1:
             if salvar_requisicao(conn, dados):
                 st.success("✅ Registrado com sucesso!"); st.balloons()
                 
-                # Gerar PDF para Download (Ajustado para bytes)
+                # Conversão garantida para bytes puros
                 try:
-                    pdf_bytes = gerar_pdf(dados, itens, nome_completo)
+                    pdf_final = gerar_pdf(dados, itens, nome_completo)
                     st.download_button(
                         label="📄 BAIXAR REQUISIÇÃO EM PDF",
-                        data=pdf_bytes,
+                        data=pdf_final,
                         file_name=f"requisicao_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
                         mime="application/pdf"
                     )
