@@ -8,7 +8,7 @@ import base64
 import re
 
 # ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
-st.set_page_config(page_title="Sistema de Requisição - Neon V7", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Sistema de Requisição - Neon V8", layout="wide", page_icon="🏢")
 
 # ── DEFINIÇÕES DE DESIGN ─────────────────────────────────────────────────────
 COR_PRIMARIA = "#003049"
@@ -40,7 +40,7 @@ def aplicar_estilo():
     </style>
     """, unsafe_allow_html=True)
 
-# ── CONSTANTES ATUALIZADAS ───────────────────────────────────────────────────
+# ── CONSTANTES ───────────────────────────────────────────────────────────────
 ORGANIZACOES = {
     "CBTS": [
         "MIN. INFANTIL", "MIN. LIBRAS", "SECRETARIA ADM", "MIN. INTERCESSAO", 
@@ -59,10 +59,8 @@ NOMES_COMPLETOS = {"ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA", "CBTS": "COMUNIDAD
 
 # ── FUNÇÃO PARA BUSCAR LOGO ──────────────────────────────────────────────────
 def buscar_logo(org):
-    # Tenta encontrar a logo na pasta atual ou em subpastas comuns
     nomes_arquivos = [f"logo_{org.lower()}.png", f"logo_{org.lower()}.jpg", f"{org.lower()}.png"]
     caminhos_possiveis = [".", "assets", "images", "upload"]
-    
     for pasta in caminhos_possiveis:
         for nome in nomes_arquivos:
             caminho = os.path.join(pasta, nome)
@@ -127,7 +125,8 @@ def gerar_pdf(dados, itens, nome_org):
     pdf.cell(90, 10, "Assinatura do Solicitante", 0, 0, 'C')
     pdf.cell(10, 10, "", 0, 0)
     pdf.cell(90, 10, "Autorizacao / Diretoria", 0, 1, 'C')
-    return pdf.output(dest='S')
+    # Retorna os bytes do PDF diretamente
+    return pdf.output()
 
 # ── CONEXÃO E FUNÇÕES ────────────────────────────────────────────────────────
 def conectar():
@@ -159,16 +158,10 @@ with st.sidebar:
     st.markdown("### 🏢 Instituição")
     org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
     aplicar_estilo()
-    
-    # Busca e exibe a logo de forma inteligente
     logo_path = buscar_logo(org_tema)
-    if logo_path:
-        st.image(logo_path, use_container_width=True)
-    else:
-        st.info(f"Logo de {org_tema} não encontrada.")
-        
+    if logo_path: st.image(logo_path, use_container_width=True)
     st.markdown("---")
-    st.caption("v11.0 - Auto Logo Detection")
+    st.caption("v12.0 - PDF Stable Bytes")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
@@ -219,13 +212,19 @@ with aba1:
             }
             if salvar_requisicao(conn, dados):
                 st.success("✅ Registrado com sucesso!"); st.balloons()
-                pdf_data = gerar_pdf(dados, itens, nome_completo)
-                st.download_button(
-                    label="📄 BAIXAR REQUISIÇÃO EM PDF",
-                    data=pdf_data,
-                    file_name=f"requisicao_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
-                    mime="application/pdf"
-                )
+                
+                # Gerar PDF para Download (Ajustado para bytes)
+                try:
+                    pdf_bytes = gerar_pdf(dados, itens, nome_completo)
+                    st.download_button(
+                        label="📄 BAIXAR REQUISIÇÃO EM PDF",
+                        data=pdf_bytes,
+                        file_name=f"requisicao_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
+                        mime="application/pdf"
+                    )
+                except Exception as e:
+                    st.error(f"Erro ao gerar o PDF: {e}")
+                
                 st.session_state.n_itens = 1
 
 with aba2:
