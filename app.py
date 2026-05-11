@@ -3,9 +3,11 @@ import pandas as pd
 from datetime import datetime
 import os
 from sqlalchemy import text
+from fpdf import FPDF
+import base64
 
 # ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
-st.set_page_config(page_title="Sistema de Requisição - Neon V4", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Sistema de Requisição - Neon V5", layout="wide", page_icon="🏢")
 
 # ── DEFINIÇÕES DE DESIGN ─────────────────────────────────────────────────────
 COR_PRIMARIA = "#003049"
@@ -37,7 +39,7 @@ def aplicar_estilo():
     </style>
     """, unsafe_allow_html=True)
 
-# ── CONSTANTES ATUALIZADAS COM A LISTA COMPLETA ──────────────────────────────
+# ── CONSTANTES ───────────────────────────────────────────────────────────────
 ORGANIZACOES = {
     "CBTS": [
         "MIN. INFANTIL", "MIN. LIBRAS", "SECRETARIA ADM", "MIN. INTERCESSAO", 
@@ -53,12 +55,76 @@ ORGANIZACOES = {
 }
 
 NOMES_COMPLETOS = {"ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA", "CBTS": "COMUNIDADE BATISTA TERRA SANTA"}
+LOGOS = {"ASTS": "/home/ubuntu/upload/logo_asts.png", "CBTS": "/home/ubuntu/upload/logo_cbts.png"}
 
-# Atualizado para usar URLs diretas do GitHub
-LOGOS = {
-    "ASTS": "https://raw.githubusercontent.com/lubrificacaomaquinassv-cloud/requisicao-compras/main/logo_asts.png",
-    "CBTS": "https://raw.githubusercontent.com/lubrificacaomaquinassv-cloud/requisicao-compras/main/logo_cbts.png"
-}
+# ── FUNÇÃO GERADORA DE PDF ───────────────────────────────────────────────────
+class PDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 15)
+        self.cell(0, 10, 'REQUISIÇÃO DE COMPRAS / SERVIÇOS', 0, 1, 'C')
+        self.ln(5)
+
+def gerar_pdf(dados, itens, nome_org):
+    pdf = PDF()
+    pdf.add_page()
+    
+    # Cabeçalho da Instituição
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, f"INSTITUIÇÃO: {nome_org}", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(0, 10, f"DATA DA REQUISIÇÃO: {dados['data'].strftime('%d/%m/%Y')}", 0, 1)
+    pdf.ln(5)
+    
+    # Dados do Solicitante e Destino
+    pdf.set_fill_color(234, 244, 244)
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 8, " INFORMAÇÕES GERAIS", 1, 1, 'L', True)
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(95, 8, f" SOLICITANTE: {dados['solicitante']}", 1, 0)
+    pdf.cell(95, 8, f" DESTINO/SETOR: {dados['cbp']}", 1, 1)
+    pdf.cell(95, 8, f" PRIORIDADE: {dados['prioridade']}", 1, 0)
+    pdf.cell(95, 8, f" FORNECEDOR: {dados['fornecedor']}", 1, 1)
+    pdf.ln(5)
+    
+    # Justificativa
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 8, " JUSTIFICATIVA / FINALIDADE", 1, 1, 'L', True)
+    pdf.set_font('Arial', '', 10)
+    pdf.multi_cell(0, 8, dados['justificativa'], 1)
+    pdf.ln(5)
+    
+    # Tabela de Itens
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 8, " DESCRIÇÃO DOS ITENS", 1, 1, 'L', True)
+    pdf.cell(100, 8, " ITEM", 1, 0, 'C')
+    pdf.cell(20, 8, " QTD", 1, 0, 'C')
+    pdf.cell(30, 8, " VALOR UNIT.", 1, 0, 'C')
+    pdf.cell(40, 8, " TOTAL", 1, 1, 'C')
+    
+    pdf.set_font('Arial', '', 10)
+    for item in itens:
+        pdf.cell(100, 8, f" {item['d']}", 1, 0)
+        pdf.cell(20, 8, f" {item['q']} {item['u']}", 1, 0, 'C')
+        pdf.cell(30, 8, f" R$ {item['v']:,.2f}", 1, 0, 'R')
+        pdf.cell(40, 8, f" R$ {item['t']:,.2f}", 1, 1, 'R')
+        
+    # Total Geral
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(150, 10, " TOTAL GERAL DA REQUISIÇÃO", 1, 0, 'R', True)
+    pdf.cell(40, 10, f" R$ {dados['valor_total']:,.2f}", 1, 1, 'R', True)
+    
+    pdf.ln(20)
+    
+    # Assinaturas
+    pdf.cell(90, 0, "", 'T', 0)
+    pdf.cell(10, 0, "", 0, 0)
+    pdf.cell(90, 0, "", 'T', 1)
+    
+    pdf.cell(90, 10, "Assinatura do Solicitante", 0, 0, 'C')
+    pdf.cell(10, 10, "", 0, 0)
+    pdf.cell(90, 10, "Autorização / Diretoria", 0, 1, 'C')
+    
+    return pdf.output(dest='S')
 
 # ── CONEXÃO E FUNÇÕES ────────────────────────────────────────────────────────
 def conectar():
@@ -90,14 +156,10 @@ with st.sidebar:
     st.markdown("### 🏢 Instituição")
     org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
     aplicar_estilo()
-    
-    # Exibição da Logo (Atualizado para aceitar URL)
-    logo_url = LOGOS.get(org_tema)
-    if logo_url:
-        st.image(logo_url, use_container_width=True)
-        
+    logo_path = LOGOS.get(org_tema)
+    if os.path.exists(logo_path): st.image(logo_path, use_container_width=True)
     st.markdown("---")
-    st.caption("v8.1 - GitHub Assets Integration")
+    st.caption("v9.0 - PDF Print Enabled")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
@@ -148,7 +210,18 @@ with aba1:
             }
             if salvar_requisicao(conn, dados):
                 st.success("✅ Registrado com sucesso!"); st.balloons()
-                st.session_state.n_itens = 1; st.rerun()
+                
+                # Gerar PDF para Download
+                pdf_data = gerar_pdf(dados, itens, nome_completo)
+                st.download_button(
+                    label="📄 BAIXAR REQUISIÇÃO EM PDF",
+                    data=pdf_data,
+                    file_name=f"requisicao_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
+                    mime="application/pdf"
+                )
+                
+                st.session_state.n_itens = 1
+                # st.rerun() # Removido para permitir o download antes de resetar
 
 with aba2:
     try:
