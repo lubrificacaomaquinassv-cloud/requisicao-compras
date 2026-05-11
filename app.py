@@ -59,7 +59,7 @@ NOMES_COMPLETOS = {"ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA", "CBTS": "COMUNIDAD
 
 # ── FUNÇÃO PARA BUSCAR LOGO ──────────────────────────────────────────────────
 def buscar_logo(org):
-    nomes_arquivos = [f"logo_{org.lower()}.png", f"logo_{org.lower()}.jpg", f"{org.lower()}.png"]
+    nomes_arquivos = [f"logo_{org.lower()}.jpeg", f"logo_{org.lower()}.jpg", f"{org.lower()}.jpeg"]
     caminhos_possiveis = [".", "assets", "images", "upload"]
     for pasta in caminhos_possiveis:
         for nome in nomes_arquivos:
