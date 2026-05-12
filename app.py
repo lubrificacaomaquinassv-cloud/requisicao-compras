@@ -43,19 +43,19 @@ def aplicar_estilo():
 # ── CONSTANTES ───────────────────────────────────────────────────────────────
 ORGANIZACOES = {
     "CBTS": [
-        "MIN. INFANTIL", "MIN. LIBRAS", "SECRETARIA ADM", "MIN. INTERCESSAO", 
-        "MIN. CURA E LIBERTACAO", "MIN. BENEFICENCIA", "MIN. RECEPCAO", 
-        "MIN. PROJECAO", "MIN. MIDIA", "MIN. EVENTOS", "MIN. VISISTAS", 
-        "MIN. CAPELANIA", "MIN. LOUVOR", "MIN. PASTORAL", "MIN. PATRIMONIO", 
-        "MIN. CELULAS FAMILIARES"
+        "Min. Infantil", "Min. de Libras", "Secretaria ADM", "Min. de Intercessao", 
+        "Min. de Cura e Libertacao", "Min. de Beneficencia", "Min. de Recepcao", 
+        "Min. Projecao", "Min. Midia", "Min. de Eventos", "Min. de Visitas", 
+        "Min. Capelania", "Min. de Louvor", "Min. Pastoral", "Min. de Patrimonio", 
+        "Min. de Celulas Familiares"
     ],
     "ASTS": [
-        "CBP", "MARCENARIA", "BETHEL MUSIC", "CAT - VIDA NOVA", 
-        "HIDROPONIA", "PRAÇA TERRA SANTA"
+        "Casa Bom Pastor", "Marcenaria Bom Pastor", "Bethel Music", "CAT - Vida Nova", 
+        "Hidroponia", "Praça Terra Santa"
     ]
 }
 
-NOMES_COMPLETOS = {"ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA", "CBTS": "COMUNIDADE BATISTA TERRA SANTA"}
+NOMES_COMPLETOS = {"ASTS": "Associação Social Terra Santa", "CBTS": "Comunidade Batista Terra Santa"}
 
 # ── FUNÇÃO PARA BUSCAR LOGO ──────────────────────────────────────────────────
 def buscar_logo(org):
