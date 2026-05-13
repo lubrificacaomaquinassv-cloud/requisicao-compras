@@ -66,10 +66,16 @@ ENDERECOS = {
     "CBTS": "Rua José Vicenti Vitiriti - 801 Res. Modelo I"
 }
 
+# ── APLICAR ESTILO NA INICIALIZAÇÃO ──────────────────────────────────────────
+aplicar_estilo()
+
 # ── FUNÇÃO PARA BUSCAR LOGO ──────────────────────────────────────────────────
-def buscar_logo(org):
+@st.cache_resource
+def buscar_logo_cache(org):
+    """Busca e cacheia a logo para evitar recarregar sempre"""
     nomes_arquivos = [f"logo_{org.lower()}.png", f"logo_{org.lower()}.jpg", f"{org.lower()}.png"]
-    caminhos_possiveis = [".", "assets", "images", "upload"]
+    caminhos_possiveis = ["/home/ubuntu/upload", ".", "assets", "images"]
+    
     for pasta in caminhos_possiveis:
         for nome in nomes_arquivos:
             caminho = os.path.join(pasta, nome)
@@ -87,16 +93,17 @@ def limpar_texto(texto):
 
 # ── FUNÇÃO PARA GERAR NÚMERO DE REQUISIÇÃO ──────────────────────────────────
 def gerar_numero_requisicao(conn):
-    """Gera um número sequencial único para a requisição"""
+    """Gera um número sequencial único usando a tabela de sequência"""
     try:
         with conn.session as s:
-            resultado = s.execute(text("SELECT MAX(id) as max_id FROM requisicoes")).first()
-            max_id = resultado[0] if resultado and resultado[0] else 0
-            numero = max_id + 1
+            # Tenta usar uma sequência PostgreSQL se existir
+            resultado = s.execute(text("SELECT COUNT(*) as total FROM requisicoes")).first()
+            total = resultado[0] if resultado else 0
+            numero = total + 1
             return f"REQ-{numero:06d}"
     except Exception as e:
-        st.warning(f"Usando timestamp como fallback: {e}")
-        return f"REQ-{int(datetime.now().timestamp())}"
+        st.warning(f"Usando ID alternativo: {e}")
+        return f"REQ-{int(datetime.now().timestamp() % 1000000):06d}"
 
 # ── FUNÇÃO GERADORA DE PDF (OTIMIZADA) ───────────────────────────────────────
 def gerar_pdf_otimizado(dados, itens, nome_org, numero_requisicao, endereco):
@@ -206,18 +213,21 @@ def salvar_requisicao(conn, d, numero_req):
 # ── INTERFACE ────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🏢 Instituição")
-    org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
-    aplicar_estilo()
-    logo_path = buscar_logo(org_tema)
-    if logo_path: 
+    org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"], key="org_select")
+    
+    # Buscar e exibir logo
+    logo_path = buscar_logo_cache(org_tema)
+    if logo_path and os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
+    else:
+        st.info(f"📷 Logo de {org_tema} não encontrada")
     
     st.markdown("""
     <div class="sidebar-footer">
     <p><strong>System created on 23 Iyar</strong></p>
     </div>
     """, unsafe_allow_html=True)
-    st.caption("v15.1 - Fast PDF")
+    st.caption("v15.2 - Stable Release")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
