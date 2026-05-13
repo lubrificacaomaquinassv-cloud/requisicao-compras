@@ -4,7 +4,6 @@ from datetime import datetime
 import os
 from sqlalchemy import text
 from fpdf import FPDF
-import base64
 import re
 
 # ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
@@ -80,8 +79,10 @@ def buscar_logo(org):
 
 # ── FUNÇÃO DE LIMPEZA DE TEXTO PARA PDF ──────────────────────────────────────
 def limpar_texto(texto):
-    if not texto: return ""
-    texto = re.sub(r'[^\x00-\x7F]+', '', str(texto))
+    if not texto: 
+        return ""
+    texto = str(texto).replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", "")
+    texto = re.sub(r'[^\x00-\x7F]+', '', texto)
     return texto.strip()
 
 # ── FUNÇÃO PARA GERAR NÚMERO DE REQUISIÇÃO ──────────────────────────────────
@@ -89,82 +90,92 @@ def gerar_numero_requisicao(conn):
     """Gera um número sequencial único para a requisição"""
     try:
         with conn.session as s:
-            resultado = s.query(text("MAX(id) as max_id")).from_statement(
-                text("SELECT MAX(id) as max_id FROM requisicoes")
-            ).first()
+            resultado = s.execute(text("SELECT MAX(id) as max_id FROM requisicoes")).first()
             max_id = resultado[0] if resultado and resultado[0] else 0
             numero = max_id + 1
             return f"REQ-{numero:06d}"
-    except:
+    except Exception as e:
+        st.warning(f"Usando timestamp como fallback: {e}")
         return f"REQ-{int(datetime.now().timestamp())}"
 
-# ── FUNÇÃO GERADORA DE PDF ───────────────────────────────────────────────────
-class PDF(FPDF):
-    def header(self):
-        self.set_font('Helvetica', 'B', 15)
-        self.cell(0, 10, 'REQUISICAO DE COMPRAS / SERVICOS', 0, 1, 'C')
-        self.ln(5)
-
-def gerar_pdf(dados, itens, nome_org, numero_requisicao, endereco):
-    pdf = PDF()
-    pdf.add_page()
-    
-    # Cabeçalho com número da requisição
-    pdf.set_font('Helvetica', 'B', 12)
-    pdf.cell(0, 10, f"NUMERO: {numero_requisicao}", 0, 1, 'R')
-    pdf.cell(0, 10, f"INSTITUICAO: {limpar_texto(nome_org)}", 0, 1)
-    
-    pdf.set_font('Helvetica', '', 9)
-    pdf.cell(0, 8, f"ENDERECO: {limpar_texto(endereco)}", 0, 1)
-    
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(0, 10, f"DATA DA REQUISICAO: {dados['data'].strftime('%d/%m/%Y')}", 0, 1)
-    pdf.ln(5)
-    
-    pdf.set_fill_color(234, 244, 244)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 8, " INFORMACOES GERAIS", 1, 1, 'L', True)
-    
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(95, 8, f" SOLICITANTE: {limpar_texto(dados['solicitante'])}", 1, 0)
-    pdf.cell(95, 8, f" DESTINO/SETOR: {limpar_texto(dados['cbp'])}", 1, 1)
-    pdf.cell(95, 8, f" PRIORIDADE: {limpar_texto(dados['prioridade'])}", 1, 0)
-    pdf.cell(95, 8, f" FORNECEDOR: {limpar_texto(dados['fornecedor'])}", 1, 1)
-    
-    pdf.ln(5)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 8, " JUSTIFICATIVA / FINALIDADE", 1, 1, 'L', True)
-    pdf.set_font('Helvetica', '', 10)
-    pdf.multi_cell(0, 8, limpar_texto(dados['justificativa']), 1)
-    
-    pdf.ln(5)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 8, " DESCRICAO DOS ITENS", 1, 1, 'L', True)
-    pdf.cell(100, 8, " ITEM", 1, 0, 'C')
-    pdf.cell(20, 8, " QTD", 1, 0, 'C')
-    pdf.cell(30, 8, " VALOR UNIT.", 1, 0, 'C')
-    pdf.cell(40, 8, " TOTAL", 1, 1, 'C')
-    
-    pdf.set_font('Helvetica', '', 10)
-    for item in itens:
-        pdf.cell(100, 8, f" {limpar_texto(item['d'])}", 1, 0)
-        pdf.cell(20, 8, f" {item['q']} {limpar_texto(item['u'])}", 1, 0, 'C')
-        pdf.cell(30, 8, f" R$ {item['v']:,.2f}", 1, 0, 'R')
-        pdf.cell(40, 8, f" R$ {item['t']:,.2f}", 1, 1, 'R')
-    
-    pdf.set_font('Helvetica', 'B', 11)
-    pdf.cell(150, 10, " TOTAL GERAL DA REQUISICAO", 1, 0, 'R', True)
-    pdf.cell(40, 10, f" R$ {dados['valor_total']:,.2f}", 1, 1, 'R', True)
-    
-    pdf.ln(20)
-    pdf.cell(90, 0, "", 'T', 0)
-    pdf.cell(10, 0, "", 0, 0)
-    pdf.cell(90, 0, "", 'T', 1)
-    pdf.cell(90, 10, "Assinatura do Solicitante", 0, 0, 'C')
-    pdf.cell(10, 10, "", 0, 0)
-    pdf.cell(90, 10, "Autorizacao / Diretoria", 0, 1, 'C')
-    
-    return bytes(pdf.output())
+# ── FUNÇÃO GERADORA DE PDF (OTIMIZADA) ───────────────────────────────────────
+def gerar_pdf_otimizado(dados, itens, nome_org, numero_requisicao, endereco):
+    """Gera PDF de forma rápida e eficiente"""
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=10)
+        
+        # Cabeçalho
+        pdf.set_font('Helvetica', 'B', 14)
+        pdf.cell(0, 8, 'REQUISICAO DE COMPRAS / SERVICOS', 0, 1, 'C')
+        pdf.ln(3)
+        
+        # Informações principais
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.cell(0, 6, f"NUMERO: {numero_requisicao}", 0, 1, 'R')
+        
+        pdf.set_font('Helvetica', '', 9)
+        pdf.cell(0, 6, f"INSTITUICAO: {limpar_texto(nome_org)}", 0, 1)
+        pdf.cell(0, 6, f"ENDERECO: {limpar_texto(endereco)}", 0, 1)
+        pdf.cell(0, 6, f"DATA: {dados['data'].strftime('%d/%m/%Y')}", 0, 1)
+        pdf.ln(3)
+        
+        # Seção de informações gerais
+        pdf.set_fill_color(200, 220, 220)
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.cell(0, 6, 'INFORMACOES GERAIS', 0, 1, 'L', True)
+        
+        pdf.set_font('Helvetica', '', 8)
+        pdf.cell(95, 5, f"Solicitante: {limpar_texto(dados['solicitante'])}", 1, 0)
+        pdf.cell(95, 5, f"Setor: {limpar_texto(dados['cbp'])}", 1, 1)
+        pdf.cell(95, 5, f"Prioridade: {limpar_texto(dados['prioridade'])}", 1, 0)
+        pdf.cell(95, 5, f"Fornecedor: {limpar_texto(dados['fornecedor'])}", 1, 1)
+        pdf.ln(2)
+        
+        # Justificativa
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.cell(0, 6, 'JUSTIFICATIVA', 0, 1, 'L', True)
+        pdf.set_font('Helvetica', '', 8)
+        pdf.multi_cell(0, 4, limpar_texto(dados['justificativa']), 0)
+        pdf.ln(2)
+        
+        # Tabela de itens
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.set_fill_color(200, 220, 220)
+        pdf.cell(70, 6, 'ITEM', 1, 0, 'L', True)
+        pdf.cell(20, 6, 'QTD', 1, 0, 'C', True)
+        pdf.cell(30, 6, 'VALOR UN.', 1, 0, 'R', True)
+        pdf.cell(30, 6, 'TOTAL', 1, 1, 'R', True)
+        
+        pdf.set_font('Helvetica', '', 8)
+        for item in itens:
+            desc = limpar_texto(item['d'])[:40]
+            pdf.cell(70, 5, desc, 1, 0)
+            pdf.cell(20, 5, f"{item['q']} {limpar_texto(item['u'])}", 1, 0, 'C')
+            pdf.cell(30, 5, f"R$ {item['v']:.2f}", 1, 0, 'R')
+            pdf.cell(30, 5, f"R$ {item['t']:.2f}", 1, 1, 'R')
+        
+        # Total
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.set_fill_color(200, 220, 220)
+        pdf.cell(120, 6, 'TOTAL GERAL', 1, 0, 'R', True)
+        pdf.cell(30, 6, f"R$ {dados['valor_total']:.2f}", 1, 1, 'R', True)
+        
+        # Assinaturas
+        pdf.ln(10)
+        pdf.set_font('Helvetica', '', 8)
+        pdf.cell(90, 0, '', 'T', 0)
+        pdf.cell(10, 0, '', 0, 0)
+        pdf.cell(90, 0, '', 'T', 1)
+        pdf.cell(90, 8, 'Assinatura do Solicitante', 0, 0, 'C')
+        pdf.cell(10, 8, '', 0, 0)
+        pdf.cell(90, 8, 'Autorizacao / Diretoria', 0, 1, 'C')
+        
+        return bytes(pdf.output())
+    except Exception as e:
+        st.error(f"Erro ao gerar PDF: {e}")
+        return None
 
 # ── CONEXÃO E FUNÇÕES ────────────────────────────────────────────────────────
 def conectar():
@@ -198,14 +209,15 @@ with st.sidebar:
     org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
     aplicar_estilo()
     logo_path = buscar_logo(org_tema)
-    if logo_path: st.image(logo_path, use_container_width=True)
+    if logo_path: 
+        st.image(logo_path, use_container_width=True)
     
     st.markdown("""
     <div class="sidebar-footer">
     <p><strong>System created on 23 Iyar</strong></p>
     </div>
     """, unsafe_allow_html=True)
-    st.caption("v15.0 - Address Integration")
+    st.caption("v15.1 - Fast PDF")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
@@ -222,69 +234,98 @@ with aba1:
     st.markdown(f"""<div class="endereco-box">📍 <strong>{endereco}</strong></div>""", unsafe_allow_html=True)
     
     c1, c2 = st.columns([2, 1])
-    with c1: solicitante = st.text_input("👤 Solicitante *")
-    with c2: data_emissao = st.date_input("📅 Data", value=datetime.now().date(), disabled=True)
+    with c1: 
+        solicitante = st.text_input("👤 Solicitante *")
+    with c2: 
+        data_emissao = st.date_input("📅 Data", value=datetime.now().date(), disabled=True)
     
     fornecedor = st.text_input("🏪 Fornecedor")
     
     c3, c4 = st.columns(2)
-    with c3: destino = st.selectbox(f"📍 Destino ({org_tema}) *", ORGANIZACOES[org_tema])
-    with c4: prioridade = st.radio("Prioridade", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True)
+    with c3: 
+        destino = st.selectbox(f"📍 Destino ({org_tema}) *", ORGANIZACOES[org_tema])
+    with c4: 
+        prioridade = st.radio("Prioridade", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True)
     
     justificativa = st.text_area("📝 Justificativa *")
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("""<div class="card-secao"><div class="card-titulo">📦 Itens e Valores</div>""", unsafe_allow_html=True)
-    if "n_itens" not in st.session_state: st.session_state.n_itens = 1
+    if "n_itens" not in st.session_state: 
+        st.session_state.n_itens = 1
+    
     itens = []
     total_geral = 0.0
+    
     for i in range(st.session_state.n_itens):
         col_d, col_q, col_u, col_v = st.columns([3, 1, 1, 2])
-        with col_d: d = st.text_input("Descrição", key=f"d_{i}")
-        with col_q: q = st.number_input("Qtd", key=f"q_{i}", min_value=1)
-        with col_u: u = st.text_input("Un", key=f"u_{i}")
-        with col_v: v = st.number_input("R$ Unit.", key=f"v_{i}", min_value=0.0)
+        with col_d: 
+            d = st.text_input("Descrição", key=f"d_{i}")
+        with col_q: 
+            q = st.number_input("Qtd", key=f"q_{i}", min_value=1)
+        with col_u: 
+            u = st.text_input("Un", key=f"u_{i}")
+        with col_v: 
+            v = st.number_input("R$ Unit.", key=f"v_{i}", min_value=0.0)
+        
         if d:
             total_item = q * v
             itens.append({"d": d, "q": q, "u": u, "v": v, "t": total_item})
             total_geral += total_item
+    
     st.markdown(f"### 💰 Total: **R$ {total_geral:,.2f}**")
-    if st.button("＋ Item"): st.session_state.n_itens += 1; st.rerun()
+    
+    if st.button("＋ Item"): 
+        st.session_state.n_itens += 1
+        st.rerun()
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button("🚀 REGISTRAR REQUISIÇÃO"):
         if not solicitante or not justificativa or not itens:
-            st.error("Preencha os campos obrigatórios.")
+            st.error("❌ Preencha os campos obrigatórios.")
         else:
-            numero_requisicao = gerar_numero_requisicao(conn)
-            
-            itens_str = " / ".join([f"{i['d']} ({i['q']} {i['u']})" for i in itens])
-            dados = {
-                "solicitante": solicitante, "data": data_emissao, "destino": org_tema,
-                "cbp": destino, "prioridade": prioridade, "justificativa": justificativa,
-                "fornecedor": fornecedor, "item_descricao": itens_str, "item_quantidade": sum([i['q'] for i in itens]),
-                "item_unidade": "diversos", "valor_unitario": total_geral/len(itens), "valor_total": total_geral
-            }
-            if salvar_requisicao(conn, dados, numero_requisicao):
-                st.success(f"✅ Requisição {numero_requisicao} registrada com sucesso!"); st.balloons()
+            with st.spinner("⏳ Processando requisição..."):
+                numero_requisicao = gerar_numero_requisicao(conn)
                 
-                try:
-                    pdf_final = gerar_pdf(dados, itens, nome_completo, numero_requisicao, endereco)
-                    st.download_button(
-                        label="📄 BAIXAR REQUISIÇÃO EM PDF",
-                        data=pdf_final,
-                        file_name=f"{numero_requisicao}_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
-                        mime="application/pdf"
-                    )
-                except Exception as e:
-                    st.error(f"Erro ao gerar o PDF: {e}")
+                itens_str = " / ".join([f"{i['d']} ({i['q']} {i['u']})" for i in itens])
+                dados = {
+                    "solicitante": solicitante, 
+                    "data": data_emissao, 
+                    "destino": org_tema,
+                    "cbp": destino, 
+                    "prioridade": prioridade, 
+                    "justificativa": justificativa,
+                    "fornecedor": fornecedor, 
+                    "item_descricao": itens_str, 
+                    "item_quantidade": sum([i['q'] for i in itens]),
+                    "item_unidade": "diversos", 
+                    "valor_unitario": total_geral/len(itens) if itens else 0, 
+                    "valor_total": total_geral
+                }
                 
-                st.session_state.n_itens = 1
+                if salvar_requisicao(conn, dados, numero_requisicao):
+                    st.success(f"✅ Requisição {numero_requisicao} registrada com sucesso!")
+                    st.balloons()
+                    
+                    pdf_final = gerar_pdf_otimizado(dados, itens, nome_completo, numero_requisicao, endereco)
+                    
+                    if pdf_final:
+                        st.download_button(
+                            label="📄 BAIXAR REQUISIÇÃO EM PDF",
+                            data=pdf_final,
+                            file_name=f"{numero_requisicao}_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
+                            mime="application/pdf"
+                        )
+                    
+                    st.session_state.n_itens = 1
 
 with aba2:
     try:
-        df = conn.query("SELECT numero_requisicao, data, fornecedor, solicitante, valor_total, item_descricao FROM requisicoes ORDER BY data_criacao DESC", ttl=0)
+        df = conn.query("SELECT numero_requisicao, data, fornecedor, solicitante, valor_total, item_descricao FROM requisicoes ORDER BY data DESC LIMIT 100", ttl=0)
         if not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
-        else: st.info("Sem registros.")
-    except: st.error("Erro ao carregar histórico.")
+        else: 
+            st.info("📭 Sem registros.")
+    except Exception as e: 
+        st.error(f"Erro ao carregar histórico: {e}")
