@@ -73,7 +73,7 @@ aplicar_estilo()
 @st.cache_resource
 def buscar_logo_cache(org):
     """Busca e cacheia a logo para evitar recarregar sempre"""
-    nomes_arquivos = [f"logo_{org.lower()}.png", f"logo_{org.lower()}.jpg", f"{org.lower()}.png"]
+    nomes_arquivos = [f"logo_{org.lower()}.png", f"logo_{org.lower()}.jpg", f"logo_{org.lower()}.jpeg", f"{org.lower()}.png", f"{org.lower()}.jpg", f"{org.lower()}.jpeg"]
     caminhos_possiveis = ["/home/ubuntu/upload", ".", "assets", "images"]
     
     for pasta in caminhos_possiveis:
