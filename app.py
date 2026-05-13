@@ -51,7 +51,7 @@ ORGANIZACOES = {
         "MIN. CELULAS FAMILIARES"
     ],
     "ASTS": [
-        "CBP", "MARCENARIA", "BETHEL MUSIC", "CAT - VIDA NOVA", 
+        "CASA BOM PASTOR", "ADM - ASTS", "MARCENARIA", "BETHEL MUSIC", "CAT - VIDA NOVA", 
         "HIDROPONIA", "PRAÇA TERRA SANTA"
     ]
 }
@@ -62,7 +62,7 @@ NOMES_COMPLETOS = {
 }
 
 ENDERECOS = {
-    "ASTS": "Rua José Vicenti Vitiriti - 801 Res. Modelo I",
+    "ASTS": "Rua Bertoldo Borges - 50 JD Santa Maria",
     "CBTS": "Rua José Vicenti Vitiriti - 801 Res. Modelo I"
 }
 
