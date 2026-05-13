@@ -8,7 +8,7 @@ import base64
 import re
 
 # ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
-st.set_page_config(page_title="Sistema de Requisição - Neon V9", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Sistema de Requisição - Neon V11", layout="wide", page_icon="🏢")
 
 # ── DEFINIÇÕES DE DESIGN ─────────────────────────────────────────────────────
 COR_PRIMARIA = "#003049"
@@ -31,35 +31,45 @@ def aplicar_estilo():
     .header-title {{ font-size: 32px; font-weight: 800; letter-spacing: 2px; margin-bottom: 5px; }}
     .header-subtitle {{ font-size: 14px; text-transform: uppercase; letter-spacing: 4px; opacity: 0.9; }}
     .header-quote {{ font-family: 'Georgia', serif; font-style: italic; font-size: 16px; margin-top: 15px; color: #fdf0d5; }}
+    .endereco-box {{ background: #f0f4f8; padding: 12px; border-radius: 8px; border-left: 4px solid {COR_PRIMARIA}; margin: 15px 0; font-size: 13px; color: {TEXTO_SEC}; }}
     .stTabs [data-baseweb="tab-list"] {{ background-color: {COR_PRIMARIA}; padding: 5px 15px; border-radius: 0 0 12px 12px; gap: 10px; }}
     .stTabs [data-baseweb="tab"] {{ color: rgba(255,255,255,0.6) !important; background: transparent !important; }}
     .stTabs [aria-selected="true"] {{ color: white !important; border-bottom: 3px solid white !important; }}
     .card-secao {{ background: {COR_CARD}; padding: 25px; border-radius: 12px; border-left: 6px solid {COR_PRIMARIA}; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-top: 25px; margin-bottom: 25px; }}
     .card-titulo {{ font-size: 18px; font-weight: 700; color: {COR_PRIMARIA}; margin-bottom: 20px; border-bottom: 1px solid {COR_BORDA}; padding-bottom: 10px; }}
     div.stButton > button {{ width: 100%; background: linear-gradient(135deg, {COR_PRIMARIA} 0%, {COR_SECUNDARIA} 100%); color: white !important; border: none; padding: 12px; font-weight: 700; border-radius: 8px; }}
+    .sidebar-footer {{ text-align: center; font-size: 12px; color: {TEXTO_SEC}; margin-top: 20px; padding-top: 15px; border-top: 1px solid {COR_BORDA}; }}
     </style>
     """, unsafe_allow_html=True)
 
 # ── CONSTANTES ───────────────────────────────────────────────────────────────
 ORGANIZACOES = {
     "CBTS": [
-        "Min. Infantil", "Min. de Libras", "Secretaria ADM", "Min. de Intercessao", 
-        "Min. de Cura e Libertacao", "Min. de Beneficencia", "Min. de Recepcao", 
-        "Min. Projecao", "Min. Midia", "Min. de Eventos", "Min. de Visitas", 
-        "Min. Capelania", "Min. de Louvor", "Min. Pastoral", "Min. de Patrimonio", 
-        "Min. de Celulas Familiares"
+        "MIN. INFANTIL", "MIN. LIBRAS", "SECRETARIA ADM", "MIN. INTERCESSAO", 
+        "MIN. CURA E LIBERTACAO", "MIN. BENEFICENCIA", "MIN. RECEPCAO", 
+        "MIN. PROJECAO", "MIN. MIDIA", "MIN. EVENTOS", "MIN. VISISTAS", 
+        "MIN. CAPELANIA", "MIN. LOUVOR", "MIN. PASTORAL", "MIN. PATRIMONIO", 
+        "MIN. CELULAS FAMILIARES"
     ],
     "ASTS": [
-        "Casa Bom Pastor", "Marcenaria Bom Pastor", "Bethel Music", "CAT - Vida Nova", 
-        "Hidroponia", "Praça Terra Santa"
+        "CBP", "MARCENARIA", "BETHEL MUSIC", "CAT - VIDA NOVA", 
+        "HIDROPONIA", "PRAÇA TERRA SANTA"
     ]
 }
 
-NOMES_COMPLETOS = {"ASTS": "Associação Social Terra Santa", "CBTS": "Comunidade Batista Terra Santa"}
+NOMES_COMPLETOS = {
+    "ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA", 
+    "CBTS": "COMUNIDADE BATISTA TERRA SANTA"
+}
+
+ENDERECOS = {
+    "ASTS": "Rua José Vicenti Vitiriti - 801 Res. Modelo I",
+    "CBTS": "Rua José Vicenti Vitiriti - 801 Res. Modelo I"
+}
 
 # ── FUNÇÃO PARA BUSCAR LOGO ──────────────────────────────────────────────────
 def buscar_logo(org):
-    nomes_arquivos = [f"logo_{org.lower()}.jpeg", f"logo_{org.lower()}.jpg", f"{org.lower()}.jpeg"]
+    nomes_arquivos = [f"logo_{org.lower()}.png", f"logo_{org.lower()}.jpg", f"{org.lower()}.png"]
     caminhos_possiveis = [".", "assets", "images", "upload"]
     for pasta in caminhos_possiveis:
         for nome in nomes_arquivos:
@@ -74,6 +84,20 @@ def limpar_texto(texto):
     texto = re.sub(r'[^\x00-\x7F]+', '', str(texto))
     return texto.strip()
 
+# ── FUNÇÃO PARA GERAR NÚMERO DE REQUISIÇÃO ──────────────────────────────────
+def gerar_numero_requisicao(conn):
+    """Gera um número sequencial único para a requisição"""
+    try:
+        with conn.session as s:
+            resultado = s.query(text("MAX(id) as max_id")).from_statement(
+                text("SELECT MAX(id) as max_id FROM requisicoes")
+            ).first()
+            max_id = resultado[0] if resultado and resultado[0] else 0
+            numero = max_id + 1
+            return f"REQ-{numero:06d}"
+    except:
+        return f"REQ-{int(datetime.now().timestamp())}"
+
 # ── FUNÇÃO GERADORA DE PDF ───────────────────────────────────────────────────
 class PDF(FPDF):
     def header(self):
@@ -81,27 +105,38 @@ class PDF(FPDF):
         self.cell(0, 10, 'REQUISICAO DE COMPRAS / SERVICOS', 0, 1, 'C')
         self.ln(5)
 
-def gerar_pdf(dados, itens, nome_org):
+def gerar_pdf(dados, itens, nome_org, numero_requisicao, endereco):
     pdf = PDF()
     pdf.add_page()
+    
+    # Cabeçalho com número da requisição
     pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 10, f"NUMERO: {numero_requisicao}", 0, 1, 'R')
     pdf.cell(0, 10, f"INSTITUICAO: {limpar_texto(nome_org)}", 0, 1)
+    
+    pdf.set_font('Helvetica', '', 9)
+    pdf.cell(0, 8, f"ENDERECO: {limpar_texto(endereco)}", 0, 1)
+    
     pdf.set_font('Helvetica', '', 10)
     pdf.cell(0, 10, f"DATA DA REQUISICAO: {dados['data'].strftime('%d/%m/%Y')}", 0, 1)
     pdf.ln(5)
+    
     pdf.set_fill_color(234, 244, 244)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 8, " INFORMACOES GERAIS", 1, 1, 'L', True)
+    
     pdf.set_font('Helvetica', '', 10)
     pdf.cell(95, 8, f" SOLICITANTE: {limpar_texto(dados['solicitante'])}", 1, 0)
     pdf.cell(95, 8, f" DESTINO/SETOR: {limpar_texto(dados['cbp'])}", 1, 1)
     pdf.cell(95, 8, f" PRIORIDADE: {limpar_texto(dados['prioridade'])}", 1, 0)
     pdf.cell(95, 8, f" FORNECEDOR: {limpar_texto(dados['fornecedor'])}", 1, 1)
+    
     pdf.ln(5)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 8, " JUSTIFICATIVA / FINALIDADE", 1, 1, 'L', True)
     pdf.set_font('Helvetica', '', 10)
     pdf.multi_cell(0, 8, limpar_texto(dados['justificativa']), 1)
+    
     pdf.ln(5)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 8, " DESCRICAO DOS ITENS", 1, 1, 'L', True)
@@ -109,15 +144,18 @@ def gerar_pdf(dados, itens, nome_org):
     pdf.cell(20, 8, " QTD", 1, 0, 'C')
     pdf.cell(30, 8, " VALOR UNIT.", 1, 0, 'C')
     pdf.cell(40, 8, " TOTAL", 1, 1, 'C')
+    
     pdf.set_font('Helvetica', '', 10)
     for item in itens:
         pdf.cell(100, 8, f" {limpar_texto(item['d'])}", 1, 0)
         pdf.cell(20, 8, f" {item['q']} {limpar_texto(item['u'])}", 1, 0, 'C')
         pdf.cell(30, 8, f" R$ {item['v']:,.2f}", 1, 0, 'R')
         pdf.cell(40, 8, f" R$ {item['t']:,.2f}", 1, 1, 'R')
+    
     pdf.set_font('Helvetica', 'B', 11)
     pdf.cell(150, 10, " TOTAL GERAL DA REQUISICAO", 1, 0, 'R', True)
     pdf.cell(40, 10, f" R$ {dados['valor_total']:,.2f}", 1, 1, 'R', True)
+    
     pdf.ln(20)
     pdf.cell(90, 0, "", 'T', 0)
     pdf.cell(10, 0, "", 0, 0)
@@ -126,27 +164,27 @@ def gerar_pdf(dados, itens, nome_org):
     pdf.cell(10, 10, "", 0, 0)
     pdf.cell(90, 10, "Autorizacao / Diretoria", 0, 1, 'C')
     
-    # CONVERSÃO CRÍTICA: bytearray para bytes puros para o Streamlit Cloud
     return bytes(pdf.output())
 
 # ── CONEXÃO E FUNÇÕES ────────────────────────────────────────────────────────
 def conectar():
     return st.connection("postgresql", type="sql")
 
-def salvar_requisicao(conn, d):
+def salvar_requisicao(conn, d, numero_req):
     try:
         with conn.session as s:
             query = text("""
                 INSERT INTO requisicoes (
-                    solicitante, data, destino, cbp, prioridade, justificativa,
+                    numero_requisicao, solicitante, data, destino, cbp, prioridade, justificativa,
                     fornecedor, item_descricao, item_quantidade, item_unidade, 
                     valor_unitario, valor_total
                 ) VALUES (
-                    :solicitante, :data, :destino, :cbp, :prioridade, :justificativa,
+                    :numero_requisicao, :solicitante, :data, :destino, :cbp, :prioridade, :justificativa,
                     :fornecedor, :item_descricao, :item_quantidade, :item_unidade,
                     :valor_unitario, :valor_total
                 )
             """)
+            d['numero_requisicao'] = numero_req
             s.execute(query, d)
             s.commit()
         return True
@@ -161,8 +199,13 @@ with st.sidebar:
     aplicar_estilo()
     logo_path = buscar_logo(org_tema)
     if logo_path: st.image(logo_path, use_container_width=True)
-    st.markdown("---")
-    st.caption("v13.0 - PDF Pure Bytes Fix")
+    
+    st.markdown("""
+    <div class="sidebar-footer">
+    <p><strong>System created on 23 Iyar</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("v15.0 - Address Integration")
 
 st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
@@ -171,14 +214,23 @@ aba1, aba2 = st.tabs(["📋 Nova Requisição", "📂 Histórico"])
 
 with aba1:
     nome_completo = NOMES_COMPLETOS.get(org_tema)
+    endereco = ENDERECOS.get(org_tema, "Endereço não configurado")
+    
     st.markdown(f"""<div class="card-secao"><div class="card-titulo">🏢 {nome_completo}</div>""", unsafe_allow_html=True)
+    
+    # Exibir endereço
+    st.markdown(f"""<div class="endereco-box">📍 <strong>{endereco}</strong></div>""", unsafe_allow_html=True)
+    
     c1, c2 = st.columns([2, 1])
     with c1: solicitante = st.text_input("👤 Solicitante *")
     with c2: data_emissao = st.date_input("📅 Data", value=datetime.now().date(), disabled=True)
+    
     fornecedor = st.text_input("🏪 Fornecedor")
+    
     c3, c4 = st.columns(2)
     with c3: destino = st.selectbox(f"📍 Destino ({org_tema}) *", ORGANIZACOES[org_tema])
     with c4: prioridade = st.radio("Prioridade", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True)
+    
     justificativa = st.text_area("📝 Justificativa *")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -204,6 +256,8 @@ with aba1:
         if not solicitante or not justificativa or not itens:
             st.error("Preencha os campos obrigatórios.")
         else:
+            numero_requisicao = gerar_numero_requisicao(conn)
+            
             itens_str = " / ".join([f"{i['d']} ({i['q']} {i['u']})" for i in itens])
             dados = {
                 "solicitante": solicitante, "data": data_emissao, "destino": org_tema,
@@ -211,16 +265,15 @@ with aba1:
                 "fornecedor": fornecedor, "item_descricao": itens_str, "item_quantidade": sum([i['q'] for i in itens]),
                 "item_unidade": "diversos", "valor_unitario": total_geral/len(itens), "valor_total": total_geral
             }
-            if salvar_requisicao(conn, dados):
-                st.success("✅ Registrado com sucesso!"); st.balloons()
+            if salvar_requisicao(conn, dados, numero_requisicao):
+                st.success(f"✅ Requisição {numero_requisicao} registrada com sucesso!"); st.balloons()
                 
-                # Conversão garantida para bytes puros
                 try:
-                    pdf_final = gerar_pdf(dados, itens, nome_completo)
+                    pdf_final = gerar_pdf(dados, itens, nome_completo, numero_requisicao, endereco)
                     st.download_button(
                         label="📄 BAIXAR REQUISIÇÃO EM PDF",
                         data=pdf_final,
-                        file_name=f"requisicao_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
+                        file_name=f"{numero_requisicao}_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
                         mime="application/pdf"
                     )
                 except Exception as e:
@@ -230,7 +283,7 @@ with aba1:
 
 with aba2:
     try:
-        df = conn.query("SELECT data, fornecedor, solicitante, valor_total, item_descricao FROM requisicoes ORDER BY data_criacao DESC", ttl=0)
+        df = conn.query("SELECT numero_requisicao, data, fornecedor, solicitante, valor_total, item_descricao FROM requisicoes ORDER BY data_criacao DESC", ttl=0)
         if not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
         else: st.info("Sem registros.")
