@@ -1,260 +1,364 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime
-import random
 import os
+from sqlalchemy import text
+from fpdf import FPDF
+import re
 
-# ── CONFIG GERAL ──────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Requisição de Compras | ASTS & CBTS",
-    page_icon="📋",
-    layout="centered"
-)
+# ── CONFIGURAÇÃO DA PÁGINA ───────────────────────────────────────────────────
+st.set_page_config(page_title="Sistema de Requisição - Neon V11", layout="wide", page_icon="🏢")
 
-# ── PALETA DE CORES ───────────────────────────────────────────────────────────
-AZUL_ASTS = "#2E3192"  # Azul da logo ASTS
-AZUL_CBTS = "#003049"  # Azul original do sistema
-BEGE      = "#F5ECD7"
-BEGE2     = "#EDE0C4"
-DOURADO   = "#C8A96E"
+# ── DEFINIÇÕES DE DESIGN ─────────────────────────────────────────────────────
+COR_PRIMARIA = "#003049"
+COR_SECUNDARIA = "#669BBC"
+COR_FUNDO = "#EAF4F4"
+COR_CARD = "#FFFFFF"
+COR_BORDA = "#D8E2DC"
+TEXTO_SEC = "#6C757D"
 
-# ── CONSTANTES ────────────────────────────────────────────────────────────────
-ORGANIZACOES = {
-    "ASTS": [
-        "CBP", "BETHEL MUSIC", "CAT VIDA NOVA",
-        "HIDROPONIA", "MARCENARIA", "PRAÇA TERRA SANTA"
-    ],
-    "CBTS": [
-        "MIN. LOUVOR", "MIN. RECEPÇÃO", "MIN. LIBRAS",
-        "MIN. CURA E LIBERTAÇÃO", "MIN. INTERCESSÃO", "MIN. MÍDIA",
-        "MIN. SONOPLASTIA", "MIN. INFANTIL", "MIN. PROJEÇÃO",
-        "MIN. CAPELANIA", "MIN. CÉLULAS", "MIN. REDE JOVENS",
-        "MIN. TEATRO", "MIN. BENEFICÊNCIA", "MIN. PREGAÇÃO",
-        "MIN. PASTORAL", "MIN. VISITAS"
-    ]
-}
-
-LOGOS = {
-    "ASTS": "logo_asts.png",
-    "CBTS": "logo_cbts.png"
-}
-
-SHEET_NAME = "REQUISICAO_COMPRAS"
-COLUNAS    = ["ID_REQUISICAO","DATA","ORGANIZACAO","DESTINO",
-              "SOLICITANTE","PRIORIDADE","JUSTIFICATIVA","ITENS"]
-
-# ── ESTILIZAÇÃO DINÂMICA ──────────────────────────────────────────────────────
-def aplicar_estilo(cor_primaria):
+def aplicar_estilo():
     st.markdown(f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap');
-
-        html, body, [class*="css"] {{
-            background-color: {BEGE} !important;
-            color: {cor_primaria} !important;
-            font-family: 'Inter', sans-serif;
-        }}
-
-        /* Cabeçalho principal */
-        .header-box {{
-            background-color: {cor_primaria};
-            padding: 28px 20px 20px;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 28px;
-            border-bottom: 4px solid {DOURADO};
-        }}
-        
-        .logo-img {{
-            max-width: 280px;
-            background-color: white;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }}
-
-        /* Cards de seção */
-        .secao {{
-            background-color: {BEGE2};
-            border: 1px solid #D4C4A0;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 18px;
-        }}
-        .secao-titulo {{
-            font-family: 'Crimson Pro', Georgia, serif;
-            font-size: 18px;
-            font-weight: 700;
-            color: {cor_primaria};
-            border-bottom: 1px solid #C8B88A;
-            padding-bottom: 8px;
-            margin-bottom: 14px;
-        }}
-
-        /* Botão primário */
-        .stButton > button {{
-            background-color: {cor_primaria} !important;
-            color: #F5ECD7 !important;
-            border: none !important;
-            border-radius: 6px !important;
-            font-weight: 700 !important;
-            font-size: 15px !important;
-            padding: 12px 28px !important;
-            width: 100%;
-            transition: 0.3s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }}
-        .stButton > button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-            filter: brightness(1.2);
-        }}
-
-        /* Tabs */
-        .stTabs [data-baseweb="tab-list"] {{
-            background-color: {cor_primaria} !important;
-            border-radius: 8px 8px 0 0;
-            padding: 4px 6px 0;
-        }}
-        .stTabs [data-baseweb="tab"] {{
-            color: #A0B4C8 !important;
-            font-weight: 700 !important;
-        }}
-        .stTabs [aria-selected="true"] {{
-            background-color: {BEGE} !important;
-            color: {cor_primaria} !important;
-        }}
-
-        /* Esconde menu padrão streamlit */
-        #MainMenu, footer, header {{visibility: hidden;}}
+    .stApp {{ background-color: {COR_FUNDO}; }}
+    div[data-testid="stDecoration"] {{ display: none; }}
+    .block-container {{ padding-top: 1.5rem !important; }}
+    .header-container {{
+        background: {COR_PRIMARIA}; padding: 25px 20px; border-radius: 12px 12px 0 0;
+        text-align: center; color: white; margin-bottom: 0px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }}
+    .header-title {{ font-size: 32px; font-weight: 800; letter-spacing: 2px; margin-bottom: 5px; }}
+    .header-subtitle {{ font-size: 14px; text-transform: uppercase; letter-spacing: 4px; opacity: 0.9; }}
+    .header-quote {{ font-family: 'Georgia', serif; font-style: italic; font-size: 16px; margin-top: 15px; color: #fdf0d5; }}
+    .endereco-box {{ background: #f0f4f8; padding: 12px; border-radius: 8px; border-left: 4px solid {COR_PRIMARIA}; margin: 15px 0; font-size: 13px; color: {TEXTO_SEC}; }}
+    .stTabs [data-baseweb="tab-list"] {{ background-color: {COR_PRIMARIA}; padding: 5px 15px; border-radius: 0 0 12px 12px; gap: 10px; }}
+    .stTabs [data-baseweb="tab"] {{ color: rgba(255,255,255,0.6) !important; background: transparent !important; }}
+    .stTabs [aria-selected="true"] {{ color: white !important; border-bottom: 3px solid white !important; }}
+    .card-secao {{ background: {COR_CARD}; padding: 25px; border-radius: 12px; border-left: 6px solid {COR_PRIMARIA}; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-top: 25px; margin-bottom: 25px; }}
+    .card-titulo {{ font-size: 18px; font-weight: 700; color: {COR_PRIMARIA}; margin-bottom: 20px; border-bottom: 1px solid {COR_BORDA}; padding-bottom: 10px; }}
+    div.stButton > button {{ width: 100%; background: linear-gradient(135deg, {COR_PRIMARIA} 0%, {COR_SECUNDARIA} 100%); color: white !important; border: none; padding: 12px; font-weight: 700; border-radius: 8px; }}
+    .sidebar-footer {{ text-align: center; font-size: 12px; color: {TEXTO_SEC}; margin-top: 20px; padding-top: 15px; border-top: 1px solid {COR_BORDA}; }}
     </style>
     """, unsafe_allow_html=True)
 
-# ── CONEXÃO SHEETS ────────────────────────────────────────────────────────────
+# ── CONSTANTES ───────────────────────────────────────────────────────────────
+ORGANIZACOES = {
+    "CBTS": [
+        "MIN. INFANTIL", "MIN. LIBRAS", "SECRETARIA ADM", "MIN. INTERCESSAO",
+        "MIN. CURA E LIBERTACAO", "MIN. BENEFICENCIA", "MIN. RECEPCAO",
+        "MIN. PROJECAO", "MIN. MIDIA", "MIN. EVENTOS", "MIN. VISISTAS",
+        "MIN. CAPELANIA", "MIN. LOUVOR", "MIN. PASTORAL", "MIN. PATRIMONIO",
+        "MIN. CELULAS FAMILIARES"
+    ],
+    "ASTS": [
+        "CASA BOM PASTOR", "ADM - ASTS", "MARCENARIA", "BETHEL MUSIC", "CAT - VIDA NOVA",
+        "HIDROPONIA", "PRAÇA TERRA SANTA"
+    ]
+}
+
+NOMES_COMPLETOS = {
+    "ASTS": "ASSOCIAÇÃO SOCIAL TERRA SANTA",
+    "CBTS": "COMUNIDADE BATISTA TERRA SANTA"
+}
+
+ENDERECOS = {
+    "ASTS": "Rua Bertoldo Borges - 50 JD Santa Maria",
+    "CBTS": "Rua José Vicenti Vitiriti - 801 Res. Modelo I"
+}
+
+# ── APLICAR ESTILO NA INICIALIZAÇÃO ──────────────────────────────────────────
+aplicar_estilo()
+
+# ── FUNÇÃO PARA BUSCAR LOGO ──────────────────────────────────────────────────
 @st.cache_resource
-def conectar_sheets():
+def buscar_logo_cache(org):
+    """Busca e cacheia a logo para evitar recarregar sempre"""
+    nomes_arquivos = [f"logo_{org.lower()}.png", f"logo_{org.lower()}.jpg", f"logo_{org.lower()}.jpeg", f"{org.lower()}.png", f"{org.lower()}.jpg", f"{org.lower()}.jpeg"]
+    caminhos_possiveis = ["/home/ubuntu/upload", ".", "assets", "images"]
+
+    for pasta in caminhos_possiveis:
+        for nome in nomes_arquivos:
+            caminho = os.path.join(pasta, nome)
+            if os.path.exists(caminho):
+                return caminho
+    return None
+
+# ── FUNÇÃO DE LIMPEZA DE TEXTO PARA PDF ──────────────────────────────────────
+def limpar_texto(texto):
+    if not texto:
+        return ""
+    texto = str(texto).replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", "")
+    texto = re.sub(r'[^\x00-\x7F]+', '', texto)
+    return texto.strip()
+
+# ── FUNÇÃO PARA GERAR NÚMERO DE REQUISIÇÃO (CORRIGIDA) ───────────────────────
+def gerar_numero_requisicao(conn):
+    """
+    Gera o próximo número sequencial baseado no MAIOR número já usado
+    (formato REQ-NNNNNN, 6 dígitos), ignorando registros legados fora do
+    padrão (ex: REQ-924504, REQ-1778680790, NULL).
+
+    Inclui verificação de existência para garantir unicidade mesmo diante
+    de inconsistências no histórico (lacunas, duplicatas, exclusões).
+    """
     try:
-        scope  = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds  = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-        client = gspread.authorize(creds)
-        return client.open(SHEET_NAME).sheet1
+        with conn.session as s:
+            resultado = s.execute(text("""
+                SELECT COALESCE(MAX(CAST(SUBSTRING(numero_requisicao FROM 5) AS INTEGER)), 0) AS maximo
+                FROM requisicoes
+                WHERE numero_requisicao ~ '^REQ-[0-9]{6}$'
+                  AND CAST(SUBSTRING(numero_requisicao FROM 5) AS INTEGER) < 100000
+            """)).first()
+
+            maximo = resultado[0] if resultado and resultado[0] is not None else 0
+            numero = maximo + 1
+
+            # Garante unicidade mesmo se houver lacunas/duplicatas no histórico
+            while True:
+                candidato = f"REQ-{numero:06d}"
+                existe = s.execute(
+                    text("SELECT 1 FROM requisicoes WHERE numero_requisicao = :n"),
+                    {"n": candidato}
+                ).first()
+                if not existe:
+                    return candidato
+                numero += 1
+
     except Exception as e:
-        st.error(f"Erro de conexão: {e}")
+        st.warning(f"Usando ID alternativo: {e}")
+        return f"REQ-{int(datetime.now().timestamp())}"
+
+# ── FUNÇÃO GERADORA DE PDF (OTIMIZADA) ───────────────────────────────────────
+def gerar_pdf_otimizado(dados, itens, nome_org, numero_requisicao, endereco):
+    """Gera PDF de forma rápida e eficiente"""
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=10)
+
+        # Cabeçalho
+        pdf.set_font('Helvetica', 'B', 14)
+        pdf.cell(0, 8, 'REQUISICAO DE COMPRAS / SERVICOS', 0, 1, 'C')
+        pdf.ln(3)
+
+        # Informações principais
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.cell(0, 6, f"NUMERO: {numero_requisicao}", 0, 1, 'R')
+
+        pdf.set_font('Helvetica', '', 9)
+        pdf.cell(0, 6, f"INSTITUICAO: {limpar_texto(nome_org)}", 0, 1)
+        pdf.cell(0, 6, f"ENDERECO: {limpar_texto(endereco)}", 0, 1)
+        pdf.cell(0, 6, f"DATA: {dados['data'].strftime('%d/%m/%Y')}", 0, 1)
+        pdf.ln(3)
+
+        # Seção de informações gerais
+        pdf.set_fill_color(200, 220, 220)
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.cell(0, 6, 'INFORMACOES GERAIS', 0, 1, 'L', True)
+
+        pdf.set_font('Helvetica', '', 8)
+        pdf.cell(95, 5, f"Solicitante: {limpar_texto(dados['solicitante'])}", 1, 0)
+        pdf.cell(95, 5, f"Setor: {limpar_texto(dados['cbp'])}", 1, 1)
+        pdf.cell(95, 5, f"Prioridade: {limpar_texto(dados['prioridade'])}", 1, 0)
+        pdf.cell(95, 5, f"Fornecedor: {limpar_texto(dados['fornecedor'])}", 1, 1)
+        pdf.ln(2)
+
+        # Justificativa
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.cell(0, 6, 'JUSTIFICATIVA', 0, 1, 'L', True)
+        pdf.set_font('Helvetica', '', 8)
+        pdf.multi_cell(0, 4, limpar_texto(dados['justificativa']), 0)
+        pdf.ln(2)
+
+        # Tabela de itens
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.set_fill_color(200, 220, 220)
+        pdf.cell(70, 6, 'ITEM', 1, 0, 'L', True)
+        pdf.cell(20, 6, 'QTD', 1, 0, 'C', True)
+        pdf.cell(30, 6, 'VALOR UN.', 1, 0, 'R', True)
+        pdf.cell(30, 6, 'TOTAL', 1, 1, 'R', True)
+
+        pdf.set_font('Helvetica', '', 8)
+        for item in itens:
+            desc = limpar_texto(item['d'])[:40]
+            pdf.cell(70, 5, desc, 1, 0)
+            pdf.cell(20, 5, f"{item['q']} {limpar_texto(item['u'])}", 1, 0, 'C')
+            pdf.cell(30, 5, f"R$ {item['v']:.2f}", 1, 0, 'R')
+            pdf.cell(30, 5, f"R$ {item['t']:.2f}", 1, 1, 'R')
+
+        # Total
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.set_fill_color(200, 220, 220)
+        pdf.cell(120, 6, 'TOTAL GERAL', 1, 0, 'R', True)
+        pdf.cell(30, 6, f"R$ {dados['valor_total']:.2f}", 1, 1, 'R', True)
+
+        # Assinaturas
+        pdf.ln(10)
+        pdf.set_font('Helvetica', '', 8)
+        pdf.cell(90, 0, '', 'T', 0)
+        pdf.cell(10, 0, '', 0, 0)
+        pdf.cell(90, 0, '', 'T', 1)
+        pdf.cell(90, 8, 'Assinatura do Solicitante', 0, 0, 'C')
+        pdf.cell(10, 8, '', 0, 0)
+        pdf.cell(90, 8, 'Autorizacao / Diretoria', 0, 1, 'C')
+
+        return bytes(pdf.output())
+    except Exception as e:
+        st.error(f"Erro ao gerar PDF: {e}")
         return None
 
-def carregar_dados(sheet):
-    dados = sheet.get_all_records()
-    return pd.DataFrame(dados) if dados else pd.DataFrame(columns=COLUNAS)
+# ── CONEXÃO E FUNÇÕES ────────────────────────────────────────────────────────
+def conectar():
+    return st.connection("postgresql", type="sql")
 
-def salvar_linha(sheet, linha):
-    sheet.append_row(linha, value_input_option="USER_ENTERED")
+def salvar_requisicao(conn, d, numero_req):
+    try:
+        with conn.session as s:
+            query = text("""
+                INSERT INTO requisicoes (
+                    numero_requisicao, solicitante, data, destino, cbp, prioridade, justificativa,
+                    fornecedor, item_descricao, item_quantidade, item_unidade,
+                    valor_unitario, valor_total
+                ) VALUES (
+                    :numero_requisicao, :solicitante, :data, :destino, :cbp, :prioridade, :justificativa,
+                    :fornecedor, :item_descricao, :item_quantidade, :item_unidade,
+                    :valor_unitario, :valor_total
+                )
+            """)
+            d['numero_requisicao'] = numero_req
+            s.execute(query, d)
+            s.commit()
+        return True
+    except Exception as e:
+        st.error(f"❌ Erro ao salvar: {e}")
+        return False
 
-def gerar_id():
-    d = datetime.now()
-    return f"REQ-{d.strftime('%Y%m%d')}-{random.randint(1,999):03d}"
-
-# ── LÓGICA DE INTERFACE ───────────────────────────────────────────────────────
-
-# Seleção de Organização na Sidebar para definir o tema
+# ── INTERFACE ────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚙️ Configurações")
-    org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"])
-    cor_tema = AZUL_ASTS if org_tema == "ASTS" else AZUL_CBTS
-    aplicar_estilo(cor_tema)
-    st.markdown("---")
-    st.caption("v2.0 - Sistema de Requisição")
+    st.markdown("### 🏢 Instituição")
+    org_tema = st.selectbox("Selecione a Organização", ["ASTS", "CBTS"], key="org_select")
 
-# Cabeçalho Dinâmico
-st.markdown('<div class="header-box">', unsafe_allow_html=True)
-logo_file = LOGOS.get(org_tema)
-if os.path.exists(logo_file):
-    st.image(logo_file, width=280)
-else:
-    st.markdown(f"<h1 style='color:white; margin:0;'>{org_tema}</h1>", unsafe_allow_html=True)
+    # Buscar e exibir logo
+    logo_path = buscar_logo_cache(org_tema)
+    if logo_path and os.path.exists(logo_path):
+        st.image(logo_path, use_container_width=True)
+    else:
+        st.info(f"📷 Logo de {org_tema} não encontrada")
 
-st.markdown(f"""
-    <div style="color:#A0B4C8; text-transform:uppercase; letter-spacing:2.5px; font-size:11px; margin-top:8px;">Sistema de Requisição de Compras</div>
-    <div style="color:{DOURADO}; font-style:italic; margin-top:12px; font-family:'Crimson Pro', serif; font-size:16px;">"Jesus é tudo que você precisa!"</div>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="sidebar-footer">
+    <p><strong>System created on 23 Iyar</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("v15.3 - Stable Release (numeração corrigida)")
 
-# Abas
-aba1, aba2 = st.tabs(["📋  Nova Requisição", "📂  Requisições Registradas"])
+st.markdown(f"""<div class="header-container"><div class="header-title">SISTEMA DE REQUISIÇÃO</div><div class="header-subtitle">CONTROLE FINANCEIRO E DE SUPRIMENTOS</div><div class="header-quote">"Jesus é tudo que você precisa!"</div></div>""", unsafe_allow_html=True)
 
-# ABA 1 - FORMULÁRIO
+conn = conectar()
+aba1, aba2 = st.tabs(["📋 Nova Requisição", "📂 Histórico"])
+
 with aba1:
-    sheet = conectar_sheets()
-    if not sheet: st.stop()
+    nome_completo = NOMES_COMPLETOS.get(org_tema)
+    endereco = ENDERECOS.get(org_tema, "Endereço não configurado")
 
-    st.markdown(f'<div class="secao"><div class="secao-titulo">🆔 Identificação - {org_tema}</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        solicitante = st.text_input("👤 Solicitante *", placeholder="Nome completo")
-    with col2:
-        st.date_input("📅 Data", value=datetime.now().date(), disabled=True)
+    st.markdown(f"""<div class="card-secao"><div class="card-titulo">🏢 {nome_completo}</div>""", unsafe_allow_html=True)
 
-    destino = st.selectbox(f"📍 Destino ({org_tema}) *", ORGANIZACOES[org_tema])
-    
-    st.write("⚖️ **Prioridade**")
-    prioridade = st.radio("P", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True, label_visibility="collapsed")
-    
-    justificativa = st.text_area("📝 Justificativa / Finalidade *", placeholder="Descreva a necessidade...", height=100)
+    # Exibir endereço
+    st.markdown(f"""<div class="endereco-box">📍 <strong>{endereco}</strong></div>""", unsafe_allow_html=True)
+
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        solicitante = st.text_input("👤 Solicitante *")
+    with c2:
+        data_emissao = st.date_input("📅 Data", value=datetime.now().date(), disabled=True)
+
+    fornecedor = st.text_input("🏪 Fornecedor")
+
+    c3, c4 = st.columns(2)
+    with c3:
+        destino = st.selectbox(f"📍 Destino ({org_tema}) *", ORGANIZACOES[org_tema])
+    with c4:
+        prioridade = st.radio("Prioridade", ["🟢 NORMAL", "🟡 URGENTE", "🔴 CRÍTICO"], horizontal=True)
+
+    justificativa = st.text_area("📝 Justificativa *")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="secao"><div class="secao-titulo">📦 Itens Solicitados</div>', unsafe_allow_html=True)
-    if "num_itens" not in st.session_state: st.session_state.num_itens = 1
-    
-    if st.button("＋ Adicionar Item"): st.session_state.num_itens += 1
+    st.markdown("""<div class="card-secao"><div class="card-titulo">📦 Itens e Valores</div>""", unsafe_allow_html=True)
+    if "n_itens" not in st.session_state:
+        st.session_state.n_itens = 1
 
-    itens_lista = []
-    for i in range(st.session_state.num_itens):
-        c1, c2, c3 = st.columns([3, 1, 1])
-        with c1: d = st.text_input(f"Descrição", key=f"d_{i}", placeholder=f"Item {i+1}")
-        with c2: q = st.text_input(f"Qtd", key=f"q_{i}")
-        with c3: u = st.text_input(f"Unid", key=f"u_{i}", placeholder="un")
-        if d: itens_lista.append(f"{d} | {q} {u}")
+    itens = []
+    total_geral = 0.0
+
+    for i in range(st.session_state.n_itens):
+        col_d, col_q, col_u, col_v = st.columns([3, 1, 1, 2])
+        with col_d:
+            d = st.text_input("Descrição", key=f"d_{i}")
+        with col_q:
+            q = st.number_input("Qtd", key=f"q_{i}", min_value=1)
+        with col_u:
+            u = st.text_input("Un", key=f"u_{i}")
+        with col_v:
+            v = st.number_input("R$ Unit.", key=f"v_{i}", min_value=0.0)
+
+        if d:
+            total_item = q * v
+            itens.append({"d": d, "q": q, "u": u, "v": v, "t": total_item})
+            total_geral += total_item
+
+    st.markdown(f"### 💰 Total: **R$ {total_geral:,.2f}**")
+
+    if st.button("＋ Item"):
+        st.session_state.n_itens += 1
+        st.rerun()
+
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("🚀  REGISTRAR REQUISIÇÃO"):
-        if not solicitante or not justificativa or not itens_lista:
-            st.error("⚠️ Preencha todos os campos obrigatórios (*)")
+    if st.button("🚀 REGISTRAR REQUISIÇÃO"):
+        if not solicitante or not justificativa or not itens:
+            st.error("❌ Preencha os campos obrigatórios.")
         else:
-            with st.spinner('Salvando...'):
-                id_req = gerar_id()
-                data_s = datetime.now().strftime("%d/%m/%Y")
-                itens_s = " / ".join(itens_lista)
-                linha = [id_req, data_s, org_tema, destino, solicitante, prioridade, justificativa, itens_s]
-                salvar_linha(sheet, linha)
-                st.success(f"✅ Requisição {id_req} registrada!")
-                st.balloons()
-                st.session_state.num_itens = 1
+            with st.spinner("⏳ Processando requisição..."):
+                numero_requisicao = gerar_numero_requisicao(conn)
 
-# ABA 2 - HISTÓRICO
+                itens_str = " / ".join([f"{i['d']} ({i['q']} {i['u']})" for i in itens])
+                dados = {
+                    "solicitante": solicitante,
+                    "data": data_emissao,
+                    "destino": org_tema,
+                    "cbp": destino,
+                    "prioridade": prioridade,
+                    "justificativa": justificativa,
+                    "fornecedor": fornecedor,
+                    "item_descricao": itens_str,
+                    "item_quantidade": sum([i['q'] for i in itens]),
+                    "item_unidade": "diversos",
+                    "valor_unitario": total_geral/len(itens) if itens else 0,
+                    "valor_total": total_geral
+                }
+
+                if salvar_requisicao(conn, dados, numero_requisicao):
+                    st.success(f"✅ Requisição {numero_requisicao} registrada com sucesso!")
+                    st.balloons()
+
+                    pdf_final = gerar_pdf_otimizado(dados, itens, nome_completo, numero_requisicao, endereco)
+
+                    if pdf_final:
+                        st.download_button(
+                            label="📄 BAIXAR REQUISIÇÃO EM PDF",
+                            data=pdf_final,
+                            file_name=f"{numero_requisicao}_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
+                            mime="application/pdf"
+                        )
+
+                    st.session_state.n_itens = 1
+
 with aba2:
-    sheet = conectar_sheets()
-    if sheet:
-        df = carregar_dados(sheet)
+    try:
+        df = conn.query("SELECT numero_requisicao, data, fornecedor, solicitante, valor_total, item_descricao FROM requisicoes ORDER BY data DESC LIMIT 100", ttl=0)
         if not df.empty:
-            st.markdown(f"### Histórico `{len(df)} registros`")
             st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            # Exportar
-            import io
-            buf = io.BytesIO()
-            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False)
-            st.download_button("⬇️ Baixar Excel", buf.getvalue(), "requisicoes.xlsx", "application/vnd.ms-excel")
         else:
-            st.info("Nenhum registro encontrado.")
-
-# RODAPÉ
-st.markdown(f"""
-<div style="background-color:{cor_tema}; color:#A0B4C8; text-align:center; padding:15px; border-radius:8px; margin-top:30px; border-top:3px solid {DOURADO}; font-size:12px;">
-    <div style="color:white; font-weight:bold; margin-bottom:5px;">{org_tema}</div>
-    Rua José Vicenti Vitiriti, 801 — Residencial Modelo I &nbsp;|&nbsp; (67) 99682-2052
-</div>
-""", unsafe_allow_html=True)
+            st.info("📭 Sem registros.")
+    except Exception as e:
+        st.error(f"Erro ao carregar histórico: {e}")
