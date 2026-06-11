@@ -326,10 +326,76 @@ def salvar_requisicao(conn, d, numero_req):
                 {**d, "numero_requisicao": numero_req},
             )
             s.commit()
-        return True
+        return True, None
     except Exception as e:
-        st.error(f"Erro ao salvar: {e}")
-        return False
+        return False, str(e)
+
+
+def parse_itens_descricao(descricao, valor_total):
+    """Reconstrói itens a partir do texto salvo no banco para reimpressão."""
+    if not descricao:
+        return [{"d": "Item", "q": 1, "u": "un", "v": float(valor_total), "t": float(valor_total)}]
+
+    itens = []
+    for parte in str(descricao).split(" / "):
+        parte = parte.strip()
+        m = re.match(r"^(.+?)\s+\((\d+)\s+([^)]+)\)$", parte)
+        if m:
+            itens.append({"d": m.group(1), "q": int(m.group(2)), "u": m.group(3), "v": 0.0, "t": 0.0})
+        elif parte:
+            itens.append({"d": parte, "q": 1, "u": "un", "v": 0.0, "t": 0.0})
+
+    if not itens:
+        return [{"d": str(descricao), "q": 1, "u": "un", "v": float(valor_total), "t": float(valor_total)}]
+
+    total = float(valor_total)
+    if len(itens) == 1:
+        itens[0]["v"] = total / itens[0]["q"] if itens[0]["q"] else total
+        itens[0]["t"] = total
+    else:
+        parte_valor = total / len(itens)
+        for item in itens:
+            item["t"] = parte_valor
+            item["v"] = parte_valor / item["q"] if item["q"] else parte_valor
+    return itens
+
+
+def buscar_requisicao(conn, numero):
+    with conn.session as s:
+        row = s.execute(
+            text("""
+                SELECT numero_requisicao, solicitante, data, destino, cbp, prioridade,
+                       justificativa, fornecedor, item_descricao, item_quantidade,
+                       item_unidade, valor_unitario, valor_total
+                FROM requisicoes
+                WHERE numero_requisicao = :numero
+                LIMIT 1
+            """),
+            {"numero": numero},
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def gerar_pdf_do_banco(row):
+    """Gera PDF a partir de um registro salvo no Supabase."""
+    destino = row["destino"]
+    nome_org = NOMES_COMPLETOS.get(destino, destino)
+    endereco = ENDERECOS.get(destino, "")
+    data_val = row["data"]
+    if not hasattr(data_val, "strftime"):
+        data_val = pd.to_datetime(data_val).date()
+
+    dados = {
+        "solicitante": row["solicitante"],
+        "data": data_val,
+        "cbp": row["cbp"],
+        "prioridade": row["prioridade"] or "NORMAL",
+        "justificativa": row["justificativa"],
+        "fornecedor": row["fornecedor"] or "",
+        "valor_total": float(row["valor_total"]),
+    }
+    itens = parse_itens_descricao(row["item_descricao"], row["valor_total"])
+    return gerar_pdf(dados, itens, nome_org, row["numero_requisicao"], endereco)
 
 
 def gerar_pdf(dados, itens, nome_org, numero_requisicao, endereco):
@@ -434,7 +500,7 @@ def render_painel_selecao(org_atual):
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<div class="footer-info"><strong>System created on 23 Iyar</strong><br>v16.1 · Nova base</div>',
+        '<div class="footer-info"><strong>System created on 23 Iyar</strong><br>v16.2 · Nova base</div>',
         unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -567,36 +633,105 @@ with col_main:
                         "valor_total": total_geral,
                     }
 
-                    if salvar_requisicao(conn, dados, numero):
-                        st.success(f"Requisição **{numero}** registrada com sucesso!")
+                    ok, erro = salvar_requisicao(conn, dados, numero)
+                    if ok:
+                        st.session_state.n_itens = 1
+                        st.session_state.ultima_requisicao = numero
+                        st.success(
+                            f"Requisição **{numero}** salva no Supabase. "
+                            f"Baixe o PDF abaixo para imprimir."
+                        )
                         st.balloons()
 
-                        pdf = gerar_pdf(dados, itens, nome_completo, numero, endereco)
-                        if pdf:
-                            st.download_button(
-                                "Baixar PDF",
-                                data=pdf,
-                                file_name=f"{numero}_{solicitante}_{datetime.now().strftime('%d%m%Y')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True,
+                        try:
+                            pdf = gerar_pdf(dados, itens, nome_completo, numero, endereco)
+                            if pdf:
+                                st.session_state.pdf_cache = {
+                                    "numero": numero,
+                                    "solicitante": solicitante,
+                                    "bytes": pdf,
+                                }
+                            else:
+                                st.warning(
+                                    f"Requisição **{numero}** salva, mas o PDF não foi gerado. "
+                                    f"Reimprima pela aba **Histórico**."
+                                )
+                        except Exception as e:
+                            st.warning(
+                                f"Requisição **{numero}** salva. Erro no PDF: {e}. "
+                                f"Reimprima pela aba **Histórico**."
                             )
-                        st.session_state.n_itens = 1
+                    else:
+                        st.error(f"Não foi possível salvar: {erro}")
+
+        if st.session_state.get("pdf_cache"):
+            cache = st.session_state.pdf_cache
+            st.markdown("---")
+            st.markdown("#### Imprimir requisição gerada")
+            st.caption("Baixe o PDF e use Ctrl+P no visualizador para imprimir.")
+            st.download_button(
+                f"Baixar PDF — {cache['numero']}",
+                data=cache["bytes"],
+                file_name=f"{cache['numero']}_{cache['solicitante']}_{datetime.now().strftime('%d%m%Y')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="dl_pdf_ultima",
+            )
 
     with aba_hist:
+        st.markdown("#### Reimprimir requisição")
+        st.caption("Selecione uma requisição salva, baixe o PDF e imprima quando quiser.")
+
         try:
             df = conn.query(
                 """
                 SELECT numero_requisicao, data, destino, solicitante,
-                       fornecedor, valor_total, item_descricao
+                       fornecedor, valor_total, item_descricao, cbp
                 FROM requisicoes
                 ORDER BY data DESC, criado_em DESC
                 LIMIT 100
                 """,
                 ttl=0,
             )
-            if not df.empty:
-                st.dataframe(df, use_container_width=True, hide_index=True)
-            else:
+            if df.empty:
                 st.info("Nenhuma requisição registrada ainda na nova base Supabase.")
+            else:
+                opcoes = df["numero_requisicao"].tolist()
+                labels = {
+                    row["numero_requisicao"]: (
+                        f"{row['numero_requisicao']} — {row['solicitante']} — "
+                        f"R$ {float(row['valor_total']):,.2f}"
+                    )
+                    for _, row in df.iterrows()
+                }
+                sel = st.selectbox(
+                    "Escolha a requisição",
+                    opcoes,
+                    format_func=lambda n: labels.get(n, n),
+                )
+
+                if st.button("Gerar PDF para impressão", type="primary", use_container_width=True):
+                    try:
+                        registro = buscar_requisicao(conn, sel)
+                        if registro is None:
+                            st.error("Requisição não encontrada.")
+                        else:
+                            pdf_hist = gerar_pdf_do_banco(registro)
+                            if pdf_hist:
+                                st.download_button(
+                                    f"Baixar PDF — {sel}",
+                                    data=pdf_hist,
+                                    file_name=f"{sel}_{registro.get('solicitante', 'requisicao')}.pdf",
+                                    mime="application/pdf",
+                                    use_container_width=True,
+                                    key=f"dl_hist_{sel}",
+                                )
+                            else:
+                                st.error("Não foi possível gerar o PDF. A requisição continua salva.")
+                    except Exception as e:
+                        st.error(f"Erro ao gerar PDF: {e}. A requisição continua salva no banco.")
+
+                st.markdown("---")
+                st.dataframe(df, use_container_width=True, hide_index=True)
         except Exception as e:
             st.error(f"Erro ao carregar histórico: {e}")
