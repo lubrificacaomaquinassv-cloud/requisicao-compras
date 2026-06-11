@@ -89,17 +89,23 @@ def aplicar_estilo():
         }}
         .painel-org {{
             background: {COR_CARD};
-            border-radius: 16px;
-            padding: 20px 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            border-radius: 14px;
+            padding: 16px 14px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
             border: 1px solid {COR_BORDA};
             position: sticky;
             top: 1rem;
+            max-width: 220px;
         }}
         .painel-org h3 {{
-            font-size: 0.75rem; text-transform: uppercase;
+            font-size: 0.68rem; text-transform: uppercase;
             letter-spacing: 0.1em; color: {TEXTO_SEC};
-            margin: 0 0 14px 4px; font-weight: 600;
+            margin: 0 0 10px 2px; font-weight: 600;
+        }}
+        .painel-org div.stButton > button {{
+            padding: 6px 8px !important;
+            font-size: 0.82rem !important;
+            min-height: 36px !important;
         }}
         .card-org {{
             border: 2px solid {COR_BORDA};
@@ -122,12 +128,22 @@ def aplicar_estilo():
             font-size: 0.7rem; color: {TEXTO_SEC}; margin-top: 4px; line-height: 1.3;
         }}
         .logo-box {{
-            margin-top: 16px;
-            padding: 16px;
-            background: #FAFBFC;
-            border-radius: 12px;
-            border: 1px dashed {COR_BORDA};
+            margin-top: 12px;
+            padding: 8px 6px;
+            background: transparent;
+            border-radius: 10px;
             text-align: center;
+        }}
+        .logo-box [data-testid="stImage"] {{
+            display: flex;
+            justify-content: center;
+        }}
+        .logo-box [data-testid="stImage"] img {{
+            max-width: 118px !important;
+            width: 118px !important;
+            height: auto !important;
+            margin: 0 auto;
+            opacity: 0.95;
         }}
         .badge-supabase {{
             display: inline-block;
@@ -387,24 +403,23 @@ def gerar_pdf(dados, itens, nome_org, numero_requisicao, endereco):
 def render_painel_selecao(org_atual):
     st.markdown('<div class="painel-org"><h3>Instituição</h3>', unsafe_allow_html=True)
 
-    for org in ["ASTS", "CBTS"]:
-        ativo = org == org_atual
-        if st.button(
-            org,
-            key=f"btn_org_{org}",
-            use_container_width=True,
-            type="primary" if ativo else "secondary",
-            help=NOMES_COMPLETOS[org],
-        ):
-            st.session_state.org_tema = org
-            st.rerun()
-        if ativo:
-            st.caption(NOMES_COMPLETOS[org])
+    bc_asts, bc_cbts = st.columns(2, gap="small")
+    for col, org in [(bc_asts, "ASTS"), (bc_cbts, "CBTS")]:
+        with col:
+            if st.button(
+                org,
+                key=f"btn_org_{org}",
+                use_container_width=True,
+                type="primary" if org == org_atual else "secondary",
+                help=NOMES_COMPLETOS[org],
+            ):
+                st.session_state.org_tema = org
+                st.rerun()
 
     st.markdown('<div class="logo-box">', unsafe_allow_html=True)
     logo = buscar_logo(org_atual)
     if logo:
-        st.image(logo, use_container_width=True)
+        st.image(logo, width=118)
     else:
         st.markdown(
             f'<p style="color:{TEXTO_SEC};font-size:0.8rem;">Logo {org_atual}<br>'
@@ -419,7 +434,7 @@ def render_painel_selecao(org_atual):
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<div class="footer-info"><strong>System created on 23 Iyar</strong><br>v16.0 · Nova base</div>',
+        '<div class="footer-info"><strong>System created on 23 Iyar</strong><br>v16.1 · Nova base</div>',
         unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -446,7 +461,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-col_painel, col_main = st.columns([1, 3.2], gap="large")
+col_painel, col_main = st.columns([0.75, 3.5], gap="medium")
 
 with col_painel:
     render_painel_selecao(org_tema)
